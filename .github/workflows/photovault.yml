@@ -24,7 +24,12 @@ jobs:
         run: xcodebuild -version && swift --version
       - name: swift test
         working-directory: PhotoVault/VaultCore
-        run: swift test 2>&1 | tee ../../vaultcore-test.log
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee ../../vaultcore-test.log
+      - name: Error summary
+        if: failure()
+        run: grep -E "error:|failed|✘" vaultcore-test.log | sort -u | head -80 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -74,6 +79,9 @@ jobs:
           cp -R build/PhotoVault.xcarchive/Products/Applications/PhotoVault.app build/ipa/Payload/
           (cd build/ipa && zip -qry ../PhotoVault-unsigned.ipa Payload)
           ls -la build/PhotoVault-unsigned.ipa
+      - name: Error summary
+        if: failure()
+        run: grep -hE "error:|\*\* .* FAILED|Test Case .* failed|✘" *.log | sort -u | head -80 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

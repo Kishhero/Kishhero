@@ -94,7 +94,7 @@ struct ChangePasscodeView: View {
             step = .current
         case .erased:
             dismiss()
-        case .failed, .ignored:
+        case .failed, .ignored, .unrecoverable:
             message = "The passcode couldn't be changed. Try again."
             step = .current
         }

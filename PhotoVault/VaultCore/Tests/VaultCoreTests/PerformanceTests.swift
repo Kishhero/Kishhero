@@ -51,14 +51,18 @@ final class PerformanceTests: XCTestCase {
         let wrapped = try keyring.wrapItemKey(VaultKeyring.newItemKey(), itemID: UUID())
         let now = Date()
         var document = CatalogDocument()
-        document.items = (0..<10_000).map { index in
-            VaultItem(
-                id: UUID(), kind: index % 10 == 0 ? .video : .photo, addedAt: now,
-                capturedAt: now.addingTimeInterval(Double(-index) * 60), originalFilename: "IMG_\(index).HEIC",
+        for index in 0..<10_000 {
+            let isVideo = index % 10 == 0
+            let kind: MediaKind = isVideo ? .video : .photo
+            let duration: Double? = isVideo ? 12.5 : nil
+            let capturedAt = now.addingTimeInterval(Double(-index) * 60)
+            document.items.append(VaultItem(
+                id: UUID(), kind: kind, addedAt: now,
+                capturedAt: capturedAt, originalFilename: "IMG_\(index).HEIC",
                 uniformType: "public.heic", pixelWidth: 4032, pixelHeight: 3024,
-                duration: index % 10 == 0 ? 12.5 : nil, byteCount: 2_500_000,
+                duration: duration, byteCount: 2_500_000,
                 wrappedKey: wrapped, originalBlob: UUID(), thumbnailBlob: UUID()
-            )
+            ))
         }
         measure {
             guard let plaintext = try? JSONEncoder().encode(document) else { return XCTFail("encoding failed") }
