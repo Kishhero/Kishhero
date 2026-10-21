@@ -57,7 +57,9 @@ jobs:
             -project PhotoVault/PhotoVault.xcodeproj -scheme PhotoVault \
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee app-build.log
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= 2>&1 | tee app-build.log
+          # "Sign to Run Locally" (identity -): the Simulator's Keychain
+          # rejects unsigned apps with errSecMissingEntitlement (-34018).
       - name: Unit and UI tests (simulator)
         run: |
           set -o pipefail
