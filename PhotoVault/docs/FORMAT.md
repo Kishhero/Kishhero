@@ -17,6 +17,7 @@ and a 16-byte tag.
 Application Support/Vault/        excluded from backups, NSFileProtectionComplete
   vault.hdr                       100 bytes, below
   index.enc                       encrypted catalog, below
+  index.prev.enc                  the catalog as of the previous save (same format)
   blobs/<random UUID>.bin         one stream blob per original and per thumbnail
   blobs/<random UUID>.tmp         a blob being written; renamed to .bin when complete
   incoming/                       picked files waiting a few seconds to be encrypted
@@ -97,7 +98,14 @@ plaintext = JSON: { "version": 1, "items": [...], "albums": [...] }
 ```
 
 Each save uses a new salt and so a new key, so the stream nonces can't repeat
-however many times the catalog is rewritten. Written atomically.
+however many times the catalog is rewritten.
+
+Saving moves the current `index.enc` to `index.prev.enc`, then writes the new
+`index.enc` atomically. Opening uses `index.prev.enc` if `index.enc` is
+missing (a save interrupted between those steps) or fails to decrypt or
+parse (damage). A *read* error on `index.enc` (for example, files still
+protected) fails the open instead, so an older catalog is never used by
+mistake.
 
 Each item records its kind, dates, original filename, type, size, duration,
 its wrapped item key, and the random IDs of its two blobs. Albums list item

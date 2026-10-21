@@ -32,11 +32,22 @@
          <TestableReference
             skipped = "NO"
             parallelizable = "NO">
-               <BuildableReference
+            <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "5EC0BA5E0000000000000014"
                BuildableName = "PhotoVaultTests.xctest"
                BlueprintName = "PhotoVaultTests"
+               ReferencedContainer = "container:PhotoVault.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5EC0BA5E0000000000000025"
+               BuildableName = "PhotoVaultUITests.xctest"
+               BlueprintName = "PhotoVaultUITests"
                ReferencedContainer = "container:PhotoVault.xcodeproj">
             </BuildableReference>
          </TestableReference>

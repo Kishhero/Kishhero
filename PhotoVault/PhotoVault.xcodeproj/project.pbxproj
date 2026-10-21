@@ -19,11 +19,19 @@
 			remoteGlobalIDString = 5EC0BA5E0000000000000013;
 			remoteInfo = PhotoVault;
 		};
+		5EC0BA5E0000000000000026 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5EC0BA5E0000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5EC0BA5E0000000000000013;
+			remoteInfo = PhotoVault;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		5EC0BA5E0000000000000006 /* PhotoVault.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhotoVault.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5EC0BA5E0000000000000007 /* PhotoVaultTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhotoVaultTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5EC0BA5E0000000000000021 /* PhotoVaultUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhotoVaultUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -35,6 +43,11 @@
 		5EC0BA5E0000000000000005 /* AppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = AppTests;
+			sourceTree = "<group>";
+		};
+		5EC0BA5E0000000000000020 /* UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = UITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -56,6 +69,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5EC0BA5E0000000000000023 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -64,6 +84,7 @@
 			children = (
 				5EC0BA5E0000000000000004 /* App */,
 				5EC0BA5E0000000000000005 /* AppTests */,
+				5EC0BA5E0000000000000020 /* UITests */,
 				5EC0BA5E0000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -73,6 +94,7 @@
 			children = (
 				5EC0BA5E0000000000000006 /* PhotoVault.app */,
 				5EC0BA5E0000000000000007 /* PhotoVaultTests.xctest */,
+				5EC0BA5E0000000000000021 /* PhotoVaultUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -127,6 +149,29 @@
 			productReference = 5EC0BA5E0000000000000007 /* PhotoVaultTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		5EC0BA5E0000000000000025 /* PhotoVaultUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5EC0BA5E0000000000000028 /* Build configuration list for PBXNativeTarget "PhotoVaultUITests" */;
+			buildPhases = (
+				5EC0BA5E0000000000000022 /* Sources */,
+				5EC0BA5E0000000000000023 /* Frameworks */,
+				5EC0BA5E0000000000000024 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5EC0BA5E0000000000000027 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5EC0BA5E0000000000000020 /* UITests */,
+			);
+			name = PhotoVaultUITests;
+			packageProductDependencies = (
+			);
+			productName = PhotoVaultUITests;
+			productReference = 5EC0BA5E0000000000000021 /* PhotoVaultUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -141,6 +186,10 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					5EC0BA5E0000000000000014 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 5EC0BA5E0000000000000013;
+					};
+					5EC0BA5E0000000000000025 = {
 						CreatedOnToolsVersion = 16.0;
 						TestTargetID = 5EC0BA5E0000000000000013;
 					};
@@ -165,6 +214,7 @@
 			targets = (
 				5EC0BA5E0000000000000013 /* PhotoVault */,
 				5EC0BA5E0000000000000014 /* PhotoVaultTests */,
+				5EC0BA5E0000000000000025 /* PhotoVaultUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -178,6 +228,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5EC0BA5E0000000000000012 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5EC0BA5E0000000000000024 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -201,6 +258,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5EC0BA5E0000000000000022 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -208,6 +272,11 @@
 			isa = PBXTargetDependency;
 			target = 5EC0BA5E0000000000000013 /* PhotoVault */;
 			targetProxy = 5EC0BA5E0000000000000015 /* PBXContainerItemProxy */;
+		};
+		5EC0BA5E0000000000000027 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5EC0BA5E0000000000000013 /* PhotoVault */;
+			targetProxy = 5EC0BA5E0000000000000026 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -306,6 +375,7 @@
 		5EC0BA5E000000000000001C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -338,6 +408,7 @@
 		5EC0BA5E000000000000001D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -403,6 +474,40 @@
 			};
 			name = Release;
 		};
+		5EC0BA5E0000000000000029 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kishhero.PhotoVaultUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = PhotoVault;
+			};
+			name = Debug;
+		};
+		5EC0BA5E000000000000002A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kishhero.PhotoVaultUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = PhotoVault;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -429,6 +534,15 @@
 			buildConfigurations = (
 				5EC0BA5E000000000000001E /* Debug */,
 				5EC0BA5E000000000000001F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5EC0BA5E0000000000000028 /* Build configuration list for PBXNativeTarget "PhotoVaultUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5EC0BA5E0000000000000029 /* Debug */,
+				5EC0BA5E000000000000002A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

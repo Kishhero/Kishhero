@@ -1,3 +1,4 @@
+import os
 import UIKit
 import VaultCore
 
@@ -32,6 +33,9 @@ final class ThumbnailCache: @unchecked Sendable {
                 return existing
             }
             let task = Task.detached(priority: .userInitiated) { [self] () -> UIImage? in
+                let signposter = Signposts.make()
+                let interval = signposter.beginInterval("Thumbnail")
+                defer { signposter.endInterval("Thumbnail", interval) }
                 guard let data = try? vault.thumbnailData(for: item), let image = UIImage(data: data) else {
                     return nil
                 }

@@ -172,7 +172,7 @@ struct VaultLibraryTests {
         #expect(try await fixture.open().items().map(\.id) == [imported[1].id])
     }
 
-    @Test("a missing catalog with files present refuses to open instead of deleting them")
+    @Test("a missing catalog and backup, with files present, refuses to open instead of deleting them")
     func missingCatalogIsNotTreatedAsEmpty() async throws {
         let fixture = Fixture()
         defer { fixture.cleanUp() }
@@ -181,9 +181,53 @@ struct VaultLibraryTests {
         _ = try await library.importFile(at: file, metadata: metadata, thumbnailJPEG: Data([1]))
         try await library.commit()
         try FileManager.default.removeItem(at: fixture.store.catalogURL)
+        try FileManager.default.removeItem(at: VaultCatalog.backupURL(for: fixture.store.catalogURL))
 
         await #expect(throws: VaultError.catalogMissing) { try await fixture.open() }
         #expect(fixture.blobFiles.count == 2)
+    }
+
+    @Test("a damaged catalog is restored from the previous save")
+    func damagedCatalogUsesBackup() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let library = try await fixture.open()
+        let (firstFile, _) = try fixture.makeFile(5_000, seed: 50)
+        let first = try await library.importFile(at: firstFile, metadata: metadata, thumbnailJPEG: Data([1]))
+        try await library.commit()
+        let (secondFile, _) = try fixture.makeFile(5_000, seed: 51)
+        _ = try await library.importFile(at: secondFile, metadata: metadata, thumbnailJPEG: Data([2]))
+        try await library.commit()
+
+        var damaged = try Data(contentsOf: fixture.store.catalogURL)
+        damaged[damaged.count / 2] ^= 0xFF
+        try damaged.write(to: fixture.store.catalogURL)
+
+        let recovered = try await fixture.open()
+        #expect(recovered.recoveredCatalogFromBackup)
+        #expect(await recovered.items().map(\.id) == [first.id])
+        // The damaged file was replaced; the next unlock is clean.
+        let again = try await fixture.open()
+        #expect(!again.recoveredCatalogFromBackup)
+        #expect(await again.items().map(\.id) == [first.id])
+    }
+
+    @Test("a save interrupted between its two steps loses nothing")
+    func interruptedSave() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let library = try await fixture.open()
+        let (file, _) = try fixture.makeFile(5_000, seed: 60)
+        let item = try await library.importFile(at: file, metadata: metadata, thumbnailJPEG: Data([1]))
+        try await library.commit()
+        // Simulate dying right after index.enc became the backup.
+        let backup = VaultCatalog.backupURL(for: fixture.store.catalogURL)
+        try FileManager.default.removeItem(at: backup)
+        try FileManager.default.moveItem(at: fixture.store.catalogURL, to: backup)
+
+        let reopened = try await fixture.open()
+        #expect(!reopened.recoveredCatalogFromBackup)
+        #expect(await reopened.items().map(\.id) == [item.id])
     }
 
     @Test("a different vault's keys cannot read the catalog or the thumbnails")

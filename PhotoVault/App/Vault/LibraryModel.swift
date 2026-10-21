@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import PhotosUI
 import SwiftUI
 import UIKit
@@ -41,6 +42,7 @@ final class LibraryModel {
     /// can't show an alert and a dialog at the same time.
     @ObservationIgnored private var pendingSummary: String?
     @ObservationIgnored private var itemsByID: [UUID: VaultItem] = [:]
+    @ObservationIgnored private var memoryWarningObserver: (any NSObjectProtocol)?
 
     let vault: VaultLibrary
     @ObservationIgnored private let thumbnails = ThumbnailCache()
@@ -58,6 +60,18 @@ final class LibraryModel {
 
     init(vault: VaultLibrary) {
         self.vault = vault
+        if vault.recoveredCatalogFromBackup {
+            operationError = "The vault's catalog was damaged and has been restored from its backup. Items added or changes made just before that may be missing."
+        }
+        // Thumbnails are only a cache; under memory pressure, give them back
+        // rather than have iOS terminate the app.
+        memoryWarningObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [thumbnails] _ in
+            thumbnails.removeAll()
+        }
     }
 
     var photoCount: Int { items.lazy.filter { $0.kind == .photo }.count }
@@ -163,6 +177,9 @@ final class LibraryModel {
     func displayImage(for item: VaultItem, maxPixelSize: Int) async -> UIImage? {
         let vault = vault
         return await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            let signposter = Signposts.make()
+            let interval = signposter.beginInterval("Decode photo")
+            defer { signposter.endInterval("Decode photo", interval) }
             guard let data = try? vault.originalData(for: item) else { return nil }
             return ImageDecoding.image(from: data, maxPixelSize: maxPixelSize)
         }.value
@@ -170,6 +187,10 @@ final class LibraryModel {
 
     /// Stops any import and drops every decrypted thumbnail. Called on lock.
     func close() {
+        if let memoryWarningObserver {
+            NotificationCenter.default.removeObserver(memoryWarningObserver)
+        }
+        memoryWarningObserver = nil
         isClosed = true
         importTask?.cancel()
         importTask = nil
@@ -279,6 +300,9 @@ final class LibraryModel {
 
     /// Runs off the main actor, two at a time, inside the task group.
     private nonisolated static func importOne(_ picked: PhotosPickerItem, into vault: VaultLibrary) async -> Outcome {
+        let signposter = Signposts.make()
+        let interval = signposter.beginInterval("Import item")
+        defer { signposter.endInterval("Import item", interval) }
         var staged: StagedFile?
         defer {
             // The unencrypted copy goes as soon as the item is done, whatever happened.

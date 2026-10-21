@@ -45,9 +45,7 @@ final class AppModel {
     let unlocker: VaultUnlocker
     let store: VaultStore
 
-    /// Shows unlock and setup time in Instruments' "Points of Interest" track.
-    /// Records timing only, never any data.
-    private static let signposter = OSSignposter(subsystem: "PhotoVault", category: .pointsOfInterest)
+    private static let signposter = Signposts.make()
 
     init(unlocker: VaultUnlocker, store: VaultStore) {
         self.unlocker = unlocker

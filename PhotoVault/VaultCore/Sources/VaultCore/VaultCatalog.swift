@@ -75,13 +75,61 @@ public actor VaultCatalog {
         self.keyring = keyring
     }
 
-    /// Returns nil when `index.enc` does not exist yet.
-    static func load(url: URL, keyring: VaultKeyring) throws -> VaultCatalog? {
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        let plaintext = try CatalogFile.open(Data(contentsOf: url), indexKey: keyring.indexKey)
+    struct Loaded {
+        let catalog: VaultCatalog
+        /// `index.enc` was damaged and the previous save was used instead.
+        let recoveredFromBackup: Bool
+    }
+
+    /// The catalog as it was one save ago (`index.prev.enc`).
+    ///
+    /// `index.enc` holds every item key, so losing it would lose the whole
+    /// vault. The backup turns a damaged catalog into, at worst, losing the
+    /// changes of the last save. Items in that save can't be recovered either
+    /// way, because their keys were only in the damaged file.
+    static func backupURL(for url: URL) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent("index.prev.enc", isDirectory: false)
+    }
+
+    /// Returns nil when neither `index.enc` nor its backup exists yet.
+    static func load(url: URL, keyring: VaultKeyring) throws -> Loaded? {
+        let fileManager = FileManager.default
+        let backup = backupURL(for: url)
+        let hasMain = fileManager.fileExists(atPath: url.path)
+        guard hasMain || fileManager.fileExists(atPath: backup.path) else { return nil }
+
+        var mainError: (any Error)?
+        if hasMain {
+            // A read error is not damage (for example, the files are still
+            // protected): fail instead of falling back to an older catalog.
+            let data = try Data(contentsOf: url)
+            do {
+                return Loaded(catalog: VaultCatalog(document: try decode(data, keyring: keyring), url: url, keyring: keyring), recoveredFromBackup: false)
+            } catch {
+                mainError = error
+            }
+        }
+        do {
+            let document = try decode(Data(contentsOf: backup), keyring: keyring)
+            if hasMain {
+                // Replace the damaged file now, without touching the good backup.
+                try fileManager.removeItem(at: url)
+                try write(document, to: url, keyring: keyring)
+            }
+            // Without a main file this is just a save interrupted between
+            // its two steps (see `write`); nothing is lost, so nothing to report.
+            return Loaded(catalog: VaultCatalog(document: document, url: url, keyring: keyring), recoveredFromBackup: hasMain)
+        } catch {
+            // A different vault's keys fail on both files: report the main error.
+            throw mainError ?? error
+        }
+    }
+
+    private static func decode(_ data: Data, keyring: VaultKeyring) throws -> CatalogDocument {
+        let plaintext = try CatalogFile.open(data, indexKey: keyring.indexKey)
         let document = try JSONDecoder().decode(CatalogDocument.self, from: plaintext)
         guard document.version == 1 else { throw VaultError.unsupportedVersion(UInt8(clamping: document.version)) }
-        return VaultCatalog(document: document, url: url, keyring: keyring)
+        return document
     }
 
     static func create(url: URL, keyring: VaultKeyring) throws -> VaultCatalog {
@@ -170,10 +218,20 @@ public actor VaultCatalog {
         isDirty = false
     }
 
-    /// Atomic: a crash mid-save leaves the previous catalog intact.
+    /// Keeps the current file as the backup, then writes the new one
+    /// atomically. A crash at any point leaves at least one complete catalog:
+    /// between the two steps only the backup exists, and `load` uses it.
     private static func write(_ document: CatalogDocument, to url: URL, keyring: VaultKeyring) throws {
         let plaintext = try JSONEncoder().encode(document)
         let sealed = try CatalogFile.seal(plaintext, indexKey: keyring.indexKey)
+        let fileManager = FileManager.default
+        let backup = backupURL(for: url)
+        if fileManager.fileExists(atPath: url.path) {
+            if fileManager.fileExists(atPath: backup.path) {
+                try fileManager.removeItem(at: backup)
+            }
+            try fileManager.moveItem(at: url, to: backup)
+        }
         try sealed.write(to: url, options: VaultStore.writeOptions)
         FileTimestamps.normalize(url)
     }

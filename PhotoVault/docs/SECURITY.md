@@ -192,6 +192,23 @@ decrypting the whole file, and memory use stays flat for 4K video.
   - The prompt says plainly that saved copies are ordinary photos, outside
     the vault's encryption, and go to iCloud if iCloud Photos is on.
 
+## Robustness and hygiene (step 7)
+
+- **Catalog backup:** every save keeps the previous catalog. A damaged
+  `index.enc` costs at most the changes of the last save, and the app says so
+  when it happens. Without the backup, one damaged file would lose the whole
+  vault, because every item key lives in it.
+- **Screenshots:** iOS gives apps no way to block them, only to learn of one
+  afterwards. While the vault is open, the app then warns that a screenshot
+  went to Photos unencrypted, so it can be deleted.
+- **Memory pressure:** decrypted thumbnails are dropped on a memory warning
+  instead of letting iOS terminate the app.
+- **Instrumentation:** signposts show unlock, import, thumbnail and decode
+  timing in Instruments. They carry no names or data.
+- **Tests:** performance baselines for encryption, seeking and catalog saves,
+  a launch-time test, and a UI test that nothing from the vault is visible
+  before the passcode.
+
 ## Things that still leak
 
 - The number of encrypted files, and their rough sizes (a photo versus a long video).

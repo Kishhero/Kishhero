@@ -12,11 +12,15 @@ public final class VaultLibrary: Sendable {
     let keyring: VaultKeyring
     let blobs: BlobStore
     let catalog: VaultCatalog
+    /// The catalog was damaged and its previous save was used. Worth telling
+    /// the user: the changes of that last save are gone.
+    public let recoveredCatalogFromBackup: Bool
 
-    private init(keyring: VaultKeyring, blobs: BlobStore, catalog: VaultCatalog) {
+    private init(keyring: VaultKeyring, blobs: BlobStore, catalog: VaultCatalog, recoveredCatalogFromBackup: Bool) {
         self.keyring = keyring
         self.blobs = blobs
         self.catalog = catalog
+        self.recoveredCatalogFromBackup = recoveredCatalogFromBackup
     }
 
     /// Decrypts the catalog and removes files a crash left behind.
@@ -24,15 +28,17 @@ public final class VaultLibrary: Sendable {
         try store.prepare()
         let blobs = BlobStore(directory: store.blobsDirectory)
         let catalog: VaultCatalog
-        if let existing = try VaultCatalog.load(url: store.catalogURL, keyring: keyring) {
-            catalog = existing
+        var recovered = false
+        if let loaded = try VaultCatalog.load(url: store.catalogURL, keyring: keyring) {
+            catalog = loaded.catalog
+            recovered = loaded.recoveredFromBackup
         } else {
             // Never start an empty catalog over existing files: garbage
             // collection would then delete every one of them.
             guard try blobs.allBlobIDs().isEmpty else { throw VaultError.catalogMissing }
             catalog = try VaultCatalog.create(url: store.catalogURL, keyring: keyring)
         }
-        let library = VaultLibrary(keyring: keyring, blobs: blobs, catalog: catalog)
+        let library = VaultLibrary(keyring: keyring, blobs: blobs, catalog: catalog, recoveredCatalogFromBackup: recovered)
         // Safe only here, before any import can be in flight: an import writes
         // its blobs before adding them to the catalog.
         let referenced = await catalog.referencedBlobs()
