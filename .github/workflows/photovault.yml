@@ -1,0 +1,85 @@
+# Builds and tests PhotoVault on GitHub's macOS machines (free for public
+# repositories), and produces an unsigned .ipa that AltStore or SideStore
+# can sign and install on an iPhone with a free Apple ID.
+name: PhotoVault
+
+on:
+  push:
+    branches: [claude/secure-mobile-architecture-e23g38]
+    paths: ["PhotoVault/**", ".github/workflows/photovault.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: photovault-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vaultcore:
+    name: VaultCore tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+      - name: swift test
+        working-directory: PhotoVault/VaultCore
+        run: swift test 2>&1 | tee ../../vaultcore-test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vaultcore-test-log
+          path: vaultcore-test.log
+
+  app:
+    name: App build, simulator tests, unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: xcodebuild -version
+      - name: Pick a simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for r,ds in d.items() if "iOS" in r for x in ds if x["name"].startswith("iPhone")))')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices available | grep "$UDID"
+      - name: Build for testing (simulator)
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing \
+            -project PhotoVault/PhotoVault.xcodeproj -scheme PhotoVault \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee app-build.log
+      - name: Unit and UI tests (simulator)
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project PhotoVault/PhotoVault.xcodeproj -scheme PhotoVault \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/DerivedData 2>&1 | tee app-test.log
+      - name: Archive for device, unsigned
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project PhotoVault/PhotoVault.xcodeproj -scheme PhotoVault \
+            -configuration Release -destination "generic/platform=iOS" \
+            -archivePath build/PhotoVault.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee app-archive.log
+      - name: Package IPA
+        run: |
+          mkdir -p build/ipa/Payload
+          cp -R build/PhotoVault.xcarchive/Products/Applications/PhotoVault.app build/ipa/Payload/
+          (cd build/ipa && zip -qry ../PhotoVault-unsigned.ipa Payload)
+          ls -la build/PhotoVault-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-logs
+          path: "*.log"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhotoVault-unsigned-ipa
+          path: build/PhotoVault-unsigned.ipa
