@@ -113,9 +113,41 @@ decrypting the whole file, and memory use stays flat for 4K video.
   Pro is turned off, because the iPhone's Data Protection and Secure Enclave
   guarantees don't carry over there.
 
+## Importing
+
+- **The system photo picker** runs outside the app and hands over only the
+  items you select. Picking needs no Photos permission.
+- **Originals are stored byte for byte** (HEIC stays HEIC, HEVC stays HEVC)
+  inside the encryption. Their EXIF and GPS data is encrypted along with them.
+  Thumbnails are re-encoded with no metadata at all.
+- **Plaintext on disk:** each picked file sits unencrypted in `incoming/` for
+  the few seconds it takes to encrypt it.
+  - It is moved there from the picker's temporary file, never copied.
+  - It is protected by `NSFileProtectionComplete`.
+  - It is deleted as soon as the item is done, whatever the outcome.
+  - `incoming/` is swept again at every launch.
+- **Crash safety:**
+  - Blobs are written to `.tmp` files and renamed when complete, before the
+    catalog mentions them. Unreferenced blobs are deleted at the next unlock.
+  - The catalog is saved every 10 items and at the end of an import, so a
+    crash loses at most the last 10 items, never the vault.
+  - If `index.enc` is missing while blobs exist, the vault refuses to open
+    instead of deleting everything as unreferenced.
+- **Free space** is checked for each item before it is encrypted.
+- **Deleting the originals from Photos** is offered after each import and done
+  only if you choose it. It needs full Photos access, which iOS asks for the
+  first time. The app uses that access for the deletion and nothing else,
+  but iOS can't enforce that. Photos keeps deleted items in Recently Deleted
+  for 30 days.
+- **Locking mid-import** cancels the import. The item being encrypted at that
+  moment finishes first (a few seconds for a large video), so its key stays in
+  memory that long.
+
 ## Things that still leak
 
 - The number of encrypted files, and their rough sizes (a photo versus a long video).
+- The order files were written in, to a forensic examiner. Timestamps are
+  reset, but inode numbers and change times can't be.
 - That the app is installed.
 - Whether the passcode is digits or a passphrase, and whether the keypad is
   shuffled (two UserDefaults display settings).
@@ -130,7 +162,8 @@ decrypting the whole file, and memory use stays flat for 4K video.
 | Argon2id cost | 64 MiB, passes calibrated to ~0.5 s, at least 3 | Unlock still feels instant; GPU guessing stays expensive |
 | Chunk size | 256 KiB | Sub-millisecond seeks; tag overhead 0.006% |
 | Lock delay | None, lock on leaving the app | Matches "passcode every launch" |
-| Thumbnails | Decrypted into memory only, dropped on lock | Smooth scrolling without plaintext on disk |
+| Thumbnails | 512 px JPEG, decrypted into memory only, dropped on lock | Smooth scrolling without plaintext on disk |
+| Import | 2 items at a time; catalog saved every 10 | Flat memory use; a crash loses at most 10 items |
 | Padding | On | Your choice; costs up to 11.6% storage |
 
 ## OWASP MASVS v2 mapping

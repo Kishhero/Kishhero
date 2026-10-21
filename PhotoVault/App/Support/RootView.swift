@@ -10,7 +10,10 @@ struct RootView: View {
             switch model.phase {
             case .setup: SetupView()
             case .locked: LockScreenView()
-            case .unlocked: VaultHomeView()
+            case .unlocked:
+                if let library = model.library {
+                    LibraryView(library: library)
+                }
             }
         }
         .overlay {

@@ -45,10 +45,18 @@ STREAM_HEADER_SIZE = 16
 TAG_SIZE = 16
 LENGTH_PREFIX_SIZE = 8
 
+CATALOG_MAGIC = b"PVCT"
+CATALOG_VERSION = 1
+CATALOG_HEADER_SIZE = 40
+
 INFO_KEK = b"PhotoVault v1 kek"
 INFO_INDEX = b"PhotoVault v1 index"
 INFO_ITEM_WRAP = b"PhotoVault v1 item-wrap"
 AAD_ITEM_KEY = b"PhotoVault v1 item-key"
+INFO_CATALOG = b"PhotoVault v1 catalog"
+INFO_BLOB_ORIGINAL = b"PhotoVault v1 blob original"
+INFO_BLOB_THUMBNAIL = b"PhotoVault v1 blob thumbnail"
+STANDARD_LOG2_CHUNK = 18
 
 
 class AuthError(Exception):
@@ -192,6 +200,28 @@ def stream_decrypt(blob: bytes, key: bytes, context: bytes) -> bytes:
     return plain[8:8 + length]
 
 
+# --- Catalog envelope (index.enc) and per-blob keys ---
+
+def blob_key(item_key: bytes, role: bytes) -> bytes:
+    return hkdf(item_key, b"", role)
+
+
+def catalog_seal(plaintext: bytes, index_key: bytes, salt: bytes, prefix: bytes) -> bytes:
+    assert len(salt) == 32
+    header = CATALOG_MAGIC + bytes([CATALOG_VERSION, 0, 0, 0]) + salt
+    assert len(header) == CATALOG_HEADER_SIZE
+    key = hkdf(index_key, salt, INFO_CATALOG)
+    return header + stream_encrypt(plaintext, key, header, STANDARD_LOG2_CHUNK, prefix)
+
+
+def catalog_open(data: bytes, index_key: bytes) -> bytes:
+    header = data[:CATALOG_HEADER_SIZE]
+    if len(data) <= CATALOG_HEADER_SIZE or header[:4] != CATALOG_MAGIC or header[4] != CATALOG_VERSION or header[5:8] != b"\0\0\0":
+        raise ValueError("malformed catalog")
+    key = hkdf(index_key, header[8:40], INFO_CATALOG)
+    return stream_decrypt(data[CATALOG_HEADER_SIZE:], key, header)
+
+
 # --- Deterministic test inputs (mirrored in ReferenceVectors.swift) ---
 
 def pattern(length: int) -> bytes:
@@ -214,6 +244,8 @@ VECTOR_STREAM_PREFIX = bytes(range(0xE0, 0xE7))
 VECTOR_STREAM_CONTEXT = b"item-0001/original"
 VECTOR_LOG2_CHUNK = 12
 VECTOR_STREAM_LENGTHS = [0, 1, 100, 4087, 4088, 4089, 10000, 70000]
+VECTOR_CATALOG_SALT = bytes(range(0xD0, 0xF0))
+VECTOR_CATALOG_LENGTH = 1000
 
 
 def self_test() -> None:
@@ -273,6 +305,18 @@ def self_test() -> None:
             raise AssertionError("blob accepted under the wrong context")
         except AuthError:
             pass
+    index_key = subkey(VECTOR_MASTER_KEY, INFO_INDEX)
+    sealed = catalog_seal(pattern(VECTOR_CATALOG_LENGTH), index_key, VECTOR_CATALOG_SALT, VECTOR_STREAM_PREFIX)
+    assert catalog_open(sealed, index_key) == pattern(VECTOR_CATALOG_LENGTH)
+    for i in range(0, len(sealed), 53):
+        flipped = bytearray(sealed)
+        flipped[i] ^= 0x04
+        try:
+            catalog_open(bytes(flipped), index_key)
+            raise AssertionError(f"tampered catalog byte {i} accepted")
+        except (AuthError, ValueError):
+            pass
+    assert blob_key(VECTOR_ITEM_KEY, INFO_BLOB_ORIGINAL) != blob_key(VECTOR_ITEM_KEY, INFO_BLOB_THUMBNAIL)
     print("reference self-test passed")
 
 
@@ -339,6 +383,16 @@ def emit_swift() -> None:
                            VECTOR_STREAM_PREFIX)
     lines += [
         "    ]",
+        "",
+        "    /// HKDF-SHA256(itemKey, salt: empty, info: \"PhotoVault v1 blob original\" / \"... thumbnail\").",
+        f'    static let originalBlobKey = "{hx(blob_key(VECTOR_ITEM_KEY, INFO_BLOB_ORIGINAL))}"',
+        f'    static let thumbnailBlobKey = "{hx(blob_key(VECTOR_ITEM_KEY, INFO_BLOB_THUMBNAIL))}"',
+        "",
+        "    /// index.enc for `pattern(catalogLength)` under `indexKey`, with fixed salt and nonce prefix.",
+        f'    static let catalogSalt = "{hx(VECTOR_CATALOG_SALT)}"',
+        f"    static let catalogLength = {VECTOR_CATALOG_LENGTH}",
+        f'    static let catalogSHA256 = "{hashlib.sha256(catalog_seal(pattern(VECTOR_CATALOG_LENGTH), index_key, VECTOR_CATALOG_SALT, VECTOR_STREAM_PREFIX)).hexdigest()}"',
+        f"    static let catalogSize = {len(catalog_seal(pattern(VECTOR_CATALOG_LENGTH), index_key, VECTOR_CATALOG_SALT, VECTOR_STREAM_PREFIX))}",
         "",
         "    /// Complete blob for a 1-byte padded content, for byte-level inspection.",
         f'    static let oneByteBlob = "{hx(small)}"',

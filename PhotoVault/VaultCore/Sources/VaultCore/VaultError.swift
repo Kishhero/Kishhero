@@ -12,6 +12,11 @@ public enum VaultError: Error, Equatable, Sendable {
     case deviceBindingMismatch
     /// Refused to create a vault over an existing one, which would destroy it.
     case vaultAlreadyExists
+    /// `index.enc` is gone but encrypted files remain. Refusing to open,
+    /// rather than treating every file as unreferenced and deleting it.
+    case catalogMissing
+    /// No item with that ID is in the catalog.
+    case itemNotFound
     /// The hardware-bound secret is gone (Keychain item deleted or wiped).
     case deviceSecretMissing
     case secureEnclaveUnavailable

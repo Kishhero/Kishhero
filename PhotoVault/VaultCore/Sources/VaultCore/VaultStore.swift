@@ -28,21 +28,38 @@ public struct VaultStore: Sendable {
         directory.appendingPathComponent("vault.hdr", isDirectory: false)
     }
 
+    var catalogURL: URL {
+        directory.appendingPathComponent("index.enc", isDirectory: false)
+    }
+
+    var blobsDirectory: URL {
+        directory.appendingPathComponent("blobs", isDirectory: true)
+    }
+
+    /// Where picked photos wait, unencrypted, for the few seconds it takes to
+    /// encrypt them. Emptied after each item, and again at every launch in
+    /// case the app was killed mid-import.
+    public var incomingDirectory: URL {
+        directory.appendingPathComponent("incoming", isDirectory: true)
+    }
+
     /// Cheap enough for app launch: a single metadata lookup, which works even
     /// while file contents are protected.
     public var hasVault: Bool {
         FileManager.default.fileExists(atPath: headerURL.path)
     }
 
-    /// Creates the folder with complete file protection, excluded from backups.
+    /// Creates the folders with complete file protection, excluded from backups.
     public func prepare() throws {
         let fileManager = FileManager.default
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        #if os(iOS)
-        // New files inherit the folder's protection class; set it explicitly in
-        // case the folder already existed.
-        try fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: directory.path)
-        #endif
+        for folder in [directory, blobsDirectory, incomingDirectory] {
+            try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+            #if os(iOS)
+            // New files inherit the folder's protection class; set it explicitly
+            // in case the folder already existed.
+            try fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: folder.path)
+            #endif
+        }
         #if canImport(Darwin)
         var url = directory
         var values = URLResourceValues()
@@ -58,6 +75,17 @@ public struct VaultStore: Sendable {
     /// Atomic: a crash mid-write leaves the old header, never half of each.
     public func writeHeader(_ header: VaultHeader) throws {
         try header.encoded.write(to: headerURL, options: Self.writeOptions)
+    }
+
+    /// Deletes anything left in `incoming/`. Needs no keys, so it is safe at launch.
+    public func clearIncoming() {
+        let fileManager = FileManager.default
+        guard let leftovers = try? fileManager.contentsOfDirectory(at: incomingDirectory, includingPropertiesForKeys: nil) else {
+            return
+        }
+        for file in leftovers {
+            try? fileManager.removeItem(at: file)
+        }
     }
 
     /// Deletes every vault file. Call only after the device secret has been

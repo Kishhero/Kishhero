@@ -56,6 +56,16 @@ enum ReferenceVectors {
         Stream(contentLength: 70000, padded: false, blobSize: 70312, blobSHA256: "d027a32d9160b4bcfedf9c6fa1df8459bdf553dcdd0bfd9cb46e8997ada5462a"),
     ]
 
+    /// HKDF-SHA256(itemKey, salt: empty, info: "PhotoVault v1 blob original" / "... thumbnail").
+    static let originalBlobKey = "85ed22dbc92702bd5cd5da272e4226febd1d2b2e02146fb66f878b513a04fcf1"
+    static let thumbnailBlobKey = "4273b59417a82b2596a0ed9c5c93a4278f28b499fd37ee5115bda927aaf035d2"
+
+    /// index.enc for `pattern(catalogLength)` under `indexKey`, with fixed salt and nonce prefix.
+    static let catalogSalt = "d0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeef"
+    static let catalogLength = 1000
+    static let catalogSHA256 = "801725aa204f19ed73fc3d5f72da0f00fa2a5531f72cf7c481d1e46da6664b40"
+    static let catalogSize = 1096
+
     /// Complete blob for a 1-byte padded content, for byte-level inspection.
     static let oneByteBlob = "50565342010c000000e0e1e2e3e4e5e68241bbd0834dc09a9de54ce2ede5a82f23ddb7c9b05651aeacfb"
 

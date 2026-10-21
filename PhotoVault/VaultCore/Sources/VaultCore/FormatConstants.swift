@@ -33,6 +33,15 @@ enum Format {
         static let allowedLog2ChunkSizes: ClosedRange<UInt8> = 12...24
     }
 
+    enum Catalog {
+        static let magic: [UInt8] = Array("PVCT".utf8)
+        static let version: UInt8 = 1
+        /// magic (4) || version (1) || reserved (3) || salt (32); also the
+        /// stream's authenticated context.
+        static let headerSize = 40
+        static let saltSize = 32
+    }
+
     /// HKDF info strings and AAD labels. Each key has exactly one purpose, and
     /// these labels keep keys derived from the same secret independent.
     enum Label {
@@ -41,5 +50,8 @@ enum Format {
         static let itemWrapKey = Data("PhotoVault v1 item-wrap".utf8)
         static let itemKeyAAD = Data("PhotoVault v1 item-key".utf8)
         static let deviceBinding = Data("PhotoVault v1 device-binding".utf8)
+        static let catalog = Data("PhotoVault v1 catalog".utf8)
+        static let blobOriginal = Data("PhotoVault v1 blob original".utf8)
+        static let blobThumbnail = Data("PhotoVault v1 blob thumbnail".utf8)
     }
 }

@@ -16,9 +16,14 @@ and a 16-byte tag.
 ```
 Application Support/Vault/        excluded from backups, NSFileProtectionComplete
   vault.hdr                       100 bytes, below
-  index.enc                       encrypted catalog (defined in step 3)
+  index.enc                       encrypted catalog, below
   blobs/<random UUID>.bin         one stream blob per original and per thumbnail
+  blobs/<random UUID>.tmp         a blob being written; renamed to .bin when complete
+  incoming/                       picked files waiting a few seconds to be encrypted
 ```
+
+Every vault file's creation and modification dates are reset to
+2020-01-01 00:00:00 UTC after writing.
 
 ## `vault.hdr`: 100 bytes
 
@@ -82,6 +87,33 @@ wrappedItemKey = nonce (12, random) || AES-GCM(itemWrapKey, nonce, itemKey,
                  aad: "PhotoVault v1 item-key" || itemID (16 raw UUID bytes))   → 60 bytes
 ```
 
+## Catalog (`index.enc`)
+
+```
+index.enc = "PVCT" (4) || 0x01 || 00 00 00 || salt (32, random per save) || stream blob
+key       = HKDF-SHA256(indexKey, salt: salt, info: "PhotoVault v1 catalog", 32)
+context   = index.enc[0..<40]
+plaintext = JSON: { "version": 1, "items": [...], "albums": [...] }
+```
+
+Each save uses a new salt and so a new key, so the stream nonces can't repeat
+however many times the catalog is rewritten. Written atomically.
+
+Each item records its kind, dates, original filename, type, size, duration,
+its wrapped item key, and the random IDs of its two blobs. Albums list item
+IDs.
+
+## Per-item blob keys
+
+```
+originalKey  = HKDF-SHA256(itemKey, salt: empty, info: "PhotoVault v1 blob original", 32)
+thumbnailKey = HKDF-SHA256(itemKey, salt: empty, info: "PhotoVault v1 blob thumbnail", 32)
+context      = "<item UUID, uppercase>/original"  or  ".../thumbnail"
+```
+
+Every key encrypts exactly one blob. Blob file names are random and unrelated
+to item IDs.
+
 ## Stream blob (`blobs/*.bin`)
 
 ```
@@ -114,8 +146,8 @@ chunk_i = AES-GCM(blobKey, nonce_i, stream[i*C ..< (i+1)*C], aad: header || cont
         = ciphertext || tag
 ```
 
-`context` is supplied by the caller and authenticated, never stored. The
-catalog (step 3) will use `"<item UUID>/original"` and `"<item UUID>/thumbnail"`.
+`context` is supplied by the caller and authenticated, never stored (see
+"Per-item blob keys" above).
 
 The reader works out `n` from the file size, rejects a last chunk of 16 bytes
 or fewer, authenticates the first and last chunks when the blob is opened, and

@@ -14,8 +14,8 @@ to save them back.
 |---|---|---|
 | 1 | VaultCore encryption: key hierarchy, Secure Enclave binding, streaming AES-GCM, Padmé | Written; Swift tests not yet run |
 | 2 | Xcode project, first-run setup, lock screen, attempt limits, lock on background, settings | Written; not yet built |
-| 3 | Import, encrypted blob store and catalog, thumbnails | Next |
-| 4 | Grid, photo viewer, video player | |
+| 3 | Import from Photos, encrypted blobs and catalog, thumbnails, basic grid, delete originals | Written; not yet built |
+| 4 | Faster grid, photo viewer, video player | Next |
 | 5 | Albums | |
 | 6 | Multi-select: delete, move, save to Photos | |
 | 7 | Hardening and profiling pass | |

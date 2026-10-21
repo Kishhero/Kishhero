@@ -3,7 +3,7 @@ import Observation
 import os
 import VaultCore
 
-/// App-wide state: which screen is showing, and the keys while unlocked.
+/// App-wide state: which screen is showing, and the open vault while unlocked.
 @MainActor
 @Observable
 final class AppModel {
@@ -34,36 +34,49 @@ final class AppModel {
     /// Mirrors the stored setting so a Toggle can bind to it; saved by the
     /// view via `saveEraseAfterFailures`.
     var eraseAfterFailures = false
+    /// The open vault. It holds the only references to the keys and to the
+    /// decrypted thumbnails, so setting it to nil is locking.
+    private(set) var library: LibraryModel?
 
-    /// The only reference to the vault's keys. Setting it to nil is locking.
-    @ObservationIgnored private var keyring: VaultKeyring?
     /// Bumped on every lock, so an unlock that finishes after the app went to
     /// the background is thrown away instead of reopening the vault.
     @ObservationIgnored private var lockGeneration = 0
 
     let unlocker: VaultUnlocker
+    let store: VaultStore
 
     /// Shows unlock and setup time in Instruments' "Points of Interest" track.
     /// Records timing only, never any data.
     private static let signposter = OSSignposter(subsystem: "PhotoVault", category: .pointsOfInterest)
 
-    init(unlocker: VaultUnlocker) {
+    init(unlocker: VaultUnlocker, store: VaultStore) {
         self.unlocker = unlocker
+        self.store = store
         phase = unlocker.hasVault ? .locked : .setup
+        // Unencrypted leftovers from an import interrupted by a crash. Needs no
+        // keys, and runs off the launch path.
+        Task.detached(priority: .utility) {
+            store.clearIncoming()
+        }
     }
 
     static func live() -> AppModel {
-        AppModel(unlocker: VaultUnlocker(
-            store: .standard(),
-            deviceSecret: DeviceSecrets.platformDefault(),
-            throttleStore: KeychainThrottleStore()
-        ))
+        let store = VaultStore.standard()
+        return AppModel(
+            unlocker: VaultUnlocker(
+                store: store,
+                deviceSecret: DeviceSecrets.platformDefault(),
+                throttleStore: KeychainThrottleStore()
+            ),
+            store: store
+        )
     }
 
     /// Drops the keys. Called whenever the app leaves the foreground, and by the Lock button.
     func lock() {
         lockGeneration += 1
-        keyring = nil
+        library?.close()
+        library = nil
         if phase == .unlocked {
             phase = .locked
         }
@@ -85,14 +98,15 @@ final class AppModel {
             let keyring = try await unlocker.setUp(passcode: passcode.bytes)
             notice = nil
             status = nil
-            if generation == lockGeneration {
-                self.keyring = keyring
-                phase = .unlocked
-            } else {
+            let opened = try await open(keyring, generation: generation)
+            if !opened {
                 phase = .locked
             }
             return true
         } catch {
+            // The vault may exist even if opening it failed; show the lock
+            // screen rather than offering to create another one.
+            if unlocker.hasVault { phase = .locked }
             return false
         }
     }
@@ -106,11 +120,11 @@ final class AppModel {
         defer { Self.signposter.endInterval("Unlock", interval) }
         do {
             let outcome = try await unlocker.unlock(passcode: passcode.bytes)
-            return apply(outcome) { keyring in
-                guard generation == lockGeneration else { return }
-                self.keyring = keyring
-                phase = .unlocked
+            let result = feedback(for: outcome)
+            if case .success(let keyring) = outcome {
+                _ = try await open(keyring, generation: generation)
             }
+            return result
         } catch {
             return .failed
         }
@@ -121,7 +135,7 @@ final class AppModel {
         isWorking = true
         defer { isWorking = false }
         do {
-            return apply(try await unlocker.changePasscode(current: current.bytes, new: new.bytes)) { _ in }
+            return feedback(for: try await unlocker.changePasscode(current: current.bytes, new: new.bytes))
         } catch {
             return .failed
         }
@@ -134,6 +148,7 @@ final class AppModel {
 
     func erase() async -> Bool {
         do {
+            library?.close()
             try await unlocker.erase()
             didErase(notice: nil)
             return true
@@ -142,11 +157,23 @@ final class AppModel {
         }
     }
 
-    private func apply<Value: Sendable>(_ outcome: AttemptOutcome<Value>, onSuccess: (Value) -> Void) -> Feedback {
+    /// Decrypts the catalog and shows the library. Returns false, and stays
+    /// locked, if the app was locked while this ran.
+    private func open(_ keyring: VaultKeyring, generation: Int) async throws -> Bool {
+        let vault = try await VaultLibrary.open(store: store, keyring: keyring)
+        guard generation == lockGeneration else { return false }
+        let library = LibraryModel(vault: vault)
+        await library.reload()
+        guard generation == lockGeneration else { return false }
+        self.library = library
+        phase = .unlocked
+        return true
+    }
+
+    private func feedback<Value: Sendable>(for outcome: AttemptOutcome<Value>) -> Feedback {
         switch outcome {
-        case .success(let value):
+        case .success:
             status = nil
-            onSuccess(value)
             return .succeeded
         case .wrongPasscode(let newStatus):
             status = newStatus
