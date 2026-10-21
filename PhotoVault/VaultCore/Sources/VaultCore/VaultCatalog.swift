@@ -66,6 +66,10 @@ enum CatalogFile {
 public actor VaultCatalog {
     private var document: CatalogDocument
     private var isDirty = false
+    /// Set when the vault locks. A task that outlives the lock (iOS can
+    /// suspend it and resume it after the next unlock) must never write its
+    /// stale catalog over a newer session's.
+    private var isClosed = false
     private let url: URL
     private let keyring: VaultKeyring
 
@@ -147,9 +151,14 @@ public actor VaultCatalog {
 
     /// Kept in memory until `saveIfNeeded`, so a large import rewrites the
     /// catalog every few items rather than once per item.
-    func add(_ item: VaultItem) {
+    func add(_ item: VaultItem) throws {
+        guard !isClosed else { throw VaultError.vaultClosed }
         document.items.append(item)
         isDirty = true
+    }
+
+    func close() {
+        isClosed = true
     }
 
     /// Removes items (and their album memberships) and returns what was removed.
@@ -213,6 +222,7 @@ public actor VaultCatalog {
     }
 
     public func saveIfNeeded() throws {
+        guard !isClosed else { throw VaultError.vaultClosed }
         guard isDirty else { return }
         try Self.write(document, to: url, keyring: keyring)
         isDirty = false

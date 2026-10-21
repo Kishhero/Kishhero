@@ -185,18 +185,22 @@ final class LibraryModel {
         }.value
     }
 
-    /// Stops any import and drops every decrypted thumbnail. Called on lock.
-    func close() {
+    /// Stops imports and exports and drops every decrypted thumbnail. Called
+    /// on lock. Returns the tasks still finishing (each stops within one
+    /// chunk), so the caller can wait for them before the vault is reopened.
+    @discardableResult
+    func close() -> [Task<Void, Never>] {
         if let memoryWarningObserver {
             NotificationCenter.default.removeObserver(memoryWarningObserver)
         }
         memoryWarningObserver = nil
         isClosed = true
-        importTask?.cancel()
+        let unfinished = [importTask, exportTask].compactMap { $0 }
+        unfinished.forEach { $0.cancel() }
         importTask = nil
-        exportTask?.cancel()
         exportTask = nil
         thumbnails.removeAll()
+        return unfinished
     }
 
     // MARK: Import
@@ -265,18 +269,26 @@ final class LibraryModel {
         }
 
         // Also after a cancel or a lock: whatever finished encrypting is kept.
-        try? await vault.commit()
-        if let album, !importedItemIDs.isEmpty {
+        var saved = true
+        do {
+            try await vault.commit()
+        } catch {
+            saved = false
+        }
+        if saved, let album, !importedItemIDs.isEmpty {
             try? await vault.addItems(importedItemIDs, toAlbum: album)
         }
         guard !isClosed else { return }
         await reload()
-        finishImport(importedAssetIDs: importedAssetIDs, wasCancelled: Task.isCancelled)
+        // Never offer to delete originals unless their vault copies are saved.
+        finishImport(importedAssetIDs: saved ? importedAssetIDs : [], wasCancelled: Task.isCancelled, saveFailed: !saved)
     }
 
-    private func finishImport(importedAssetIDs: [String], wasCancelled: Bool) {
+    private func finishImport(importedAssetIDs: [String], wasCancelled: Bool, saveFailed: Bool) {
         var summary: String?
-        if let progress = importProgress {
+        if saveFailed {
+            summary = "The vault couldn't save this import. Your originals are still in Photos."
+        } else if let progress = importProgress {
             let added = progress.completed - progress.failed
             if wasCancelled {
                 summary = "Stopped. \(added) of \(progress.total) items were added."

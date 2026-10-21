@@ -85,8 +85,21 @@ public final class VaultLibrary: Sendable {
             try? blobs.delete(originalBlob)
             throw error
         }
-        await catalog.add(item)
+        do {
+            try Task.checkCancellation()
+            try await catalog.add(item)
+        } catch {
+            try? blobs.delete(originalBlob)
+            try? blobs.delete(item.thumbnailBlob)
+            throw error
+        }
         return item
+    }
+
+    /// Stops all further catalog writes. Called once the work of a locked
+    /// session has finished, so nothing it does later can touch the vault.
+    public func close() async {
+        await catalog.close()
     }
 
     /// Writes the catalog if anything changed since the last commit.
@@ -127,6 +140,7 @@ public final class VaultLibrary: Sendable {
             defer { try? handle.close() }
             var offset: UInt64 = 0
             while offset < reader.contentLength {
+                try Task.checkCancellation()
                 let chunk = try reader.read(at: offset, count: 1 << 20)
                 try handle.write(contentsOf: chunk)
                 offset += UInt64(chunk.count)

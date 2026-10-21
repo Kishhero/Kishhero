@@ -229,6 +229,30 @@ struct VaultUnlockerTests {
         }
     }
 
+    @Test("setup clears what an interrupted erase left behind")
+    func setUpAfterInterruptedErase() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let unlocker = fixture.makeUnlocker()
+        _ = try await unlocker.setUp(passcode: passcode("24681357"))
+        // An erase that got as far as the header: old catalog and blobs remain.
+        let leftovers = [
+            fixture.store.catalogURL,
+            fixture.store.blobsDirectory.appendingPathComponent("\(UUID().uuidString).bin"),
+        ]
+        for url in leftovers { try Data([1, 2, 3]).write(to: url) }
+        try fixture.store.removeHeader()
+        #expect(!unlocker.hasVault)
+
+        let keyring = try await unlocker.setUp(passcode: passcode("11223344"))
+        for url in leftovers {
+            #expect(!FileManager.default.fileExists(atPath: url.path))
+        }
+        // The new vault opens: no stale catalog is in the way.
+        let library = try await VaultLibrary.open(store: fixture.store, keyring: keyring)
+        #expect(await library.items().isEmpty)
+    }
+
     @Test("erase destroys the device secret, the files and the counter")
     func erase() async throws {
         let fixture = Fixture()

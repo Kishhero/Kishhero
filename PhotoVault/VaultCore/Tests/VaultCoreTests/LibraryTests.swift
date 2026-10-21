@@ -187,6 +187,27 @@ struct VaultLibraryTests {
         #expect(fixture.blobFiles.count == 2)
     }
 
+    @Test("after close, a late task can't add to or save the catalog")
+    func closedLibraryRejectsWrites() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let library = try await fixture.open()
+        let (keptFile, _) = try fixture.makeFile(5_000, seed: 70)
+        let kept = try await library.importFile(at: keptFile, metadata: metadata, thumbnailJPEG: Data([1]))
+        try await library.commit()
+
+        await library.close()
+
+        let (lateFile, _) = try fixture.makeFile(5_000, seed: 71)
+        await #expect(throws: VaultError.vaultClosed) {
+            try await library.importFile(at: lateFile, metadata: metadata, thumbnailJPEG: Data([2]))
+        }
+        await #expect(throws: VaultError.vaultClosed) { try await library.commit() }
+        // The rejected import left no files behind, and the saved state is intact.
+        #expect(fixture.blobFiles.count == 2)
+        #expect(try await fixture.open().items().map(\.id) == [kept.id])
+    }
+
     @Test("a damaged catalog is restored from the previous save")
     func damagedCatalogUsesBackup() async throws {
         let fixture = Fixture()

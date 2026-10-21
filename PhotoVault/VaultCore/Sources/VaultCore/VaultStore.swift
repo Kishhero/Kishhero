@@ -95,6 +95,13 @@ public struct VaultStore: Sendable {
         }
     }
 
+    /// Deletes `vault.hdr` first, on its own: from then on the app treats the
+    /// vault as gone and offers setup, even if deleting the rest is interrupted.
+    public func removeHeader() throws {
+        guard FileManager.default.fileExists(atPath: headerURL.path) else { return }
+        try FileManager.default.removeItem(at: headerURL)
+    }
+
     /// Deletes every vault file. Call only after the device secret has been
     /// destroyed, so the vault is already unreadable if this is interrupted.
     public func eraseFiles() throws {

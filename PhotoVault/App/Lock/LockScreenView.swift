@@ -7,17 +7,30 @@ struct LockScreenView: View {
     @AppStorage(Preferences.passcodeKind) private var kind = PasscodeKind.digits
     @State private var feedback: AppModel.Feedback?
     @State private var failures = 0
+    @State private var confirmingErase = false
 
     var body: some View {
         VStack(spacing: 0) {
             entry
             // In case the saved choice is ever lost: lets the owner pick the
             // other input. It reveals nothing about the passcode.
+            if feedback == .unrecoverable {
+                Button("Erase Vault and Start Over", role: .destructive) { confirmingErase = true }
+                    .font(.footnote)
+                    .padding(.bottom, 8)
+            }
             Button(kind == .digits ? "Use Passphrase" : "Use Keypad") {
                 kind = kind == .digits ? .passphrase : .digits
             }
             .font(.footnote)
             .padding(.bottom, 12)
+        }
+        .confirmationDialog("Erase the vault?", isPresented: $confirmingErase, titleVisibility: .visible) {
+            Button("Erase Everything", role: .destructive) {
+                Task { _ = await model.erase() }
+            }
+        } message: {
+            Text("This vault can't be opened on this iPhone any more. Erasing destroys everything in it and lets you create a new one. This can't be undone.")
         }
         .task {
             await model.refreshStatus()
@@ -61,6 +74,8 @@ struct LockScreenView: View {
             return "Wrong passcode."
         case .failed:
             return "The vault couldn't be opened. Try again."
+        case .unrecoverable:
+            return "This vault can't be opened: its key on this iPhone is gone, or its files are damaged."
         default:
             return nil
         }

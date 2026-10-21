@@ -19,6 +19,10 @@ final class AppModel {
         case throttled
         case erased
         case failed
+        /// The passcode was right (or couldn't be checked) but the vault can
+        /// never open: the device secret is gone, or the header or catalog is
+        /// damaged beyond the backup. Only erasing gets out of this.
+        case unrecoverable
         /// Another attempt was already running; nothing was tried.
         case ignored
     }
@@ -41,6 +45,10 @@ final class AppModel {
     /// Bumped on every lock, so an unlock that finishes after the app went to
     /// the background is thrown away instead of reopening the vault.
     @ObservationIgnored private var lockGeneration = 0
+    /// The previous session's imports and exports winding down after a lock.
+    /// Awaited before the vault is reopened or erased, so a task iOS resumes
+    /// late can never write over a newer session.
+    @ObservationIgnored private var closingWork: Task<Void, Never>?
 
     let unlocker: VaultUnlocker
     let store: VaultStore
@@ -73,7 +81,17 @@ final class AppModel {
     /// Drops the keys. Called whenever the app leaves the foreground, and by the Lock button.
     func lock() {
         lockGeneration += 1
-        library?.close()
+        if let library {
+            let unfinished = library.close()
+            let previous = closingWork
+            closingWork = Task {
+                await previous?.value
+                for task in unfinished {
+                    await task.value
+                }
+                await library.vault.close()
+            }
+        }
         library = nil
         if phase == .unlocked {
             phase = .locked
@@ -81,8 +99,11 @@ final class AppModel {
     }
 
     func refreshStatus() async {
-        status = try? await unlocker.status()
-        eraseAfterFailures = status?.eraseEnabled ?? false
+        // On a read error keep what is shown, rather than flipping the erase
+        // toggle off (which Settings would then save).
+        guard let newStatus = try? await unlocker.status() else { return }
+        status = newStatus
+        eraseAfterFailures = newStatus.eraseEnabled
     }
 
     func setUp(with passcode: PasscodeBuffer) async -> Bool {
@@ -123,7 +144,15 @@ final class AppModel {
                 _ = try await open(keyring, generation: generation)
             }
             return result
+        } catch let error as VaultError {
+            switch error {
+            case .deviceSecretMissing, .catalogMissing, .authenticationFailed, .malformedData:
+                return .unrecoverable
+            default:
+                return .failed
+            }
         } catch {
+            // File errors and the like may be temporary: never offer to erase for them.
             return .failed
         }
     }
@@ -145,8 +174,9 @@ final class AppModel {
     }
 
     func erase() async -> Bool {
+        lock()
+        await closingWork?.value
         do {
-            library?.close()
             try await unlocker.erase()
             didErase(notice: nil)
             return true
@@ -158,6 +188,7 @@ final class AppModel {
     /// Decrypts the catalog and shows the library. Returns false, and stays
     /// locked, if the app was locked while this ran.
     private func open(_ keyring: VaultKeyring, generation: Int) async throws -> Bool {
+        await closingWork?.value
         let vault = try await VaultLibrary.open(store: store, keyring: keyring)
         guard generation == lockGeneration else { return false }
         let library = LibraryModel(vault: vault)

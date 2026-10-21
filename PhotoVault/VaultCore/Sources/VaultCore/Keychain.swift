@@ -35,14 +35,20 @@ struct KeychainItem {
         }
     }
 
+    /// Updates the item in place when it exists, so a failed write never
+    /// leaves it deleted (which would, for example, reset the attempt counter).
     func write(_ data: Data) throws {
-        try delete()
-        var attributes = baseQuery
-        attributes[kSecValueData as String] = data
         // WhenUnlocked: unreadable while the phone is locked.
         // ThisDeviceOnly: never synced to iCloud Keychain, and never restored
         // to a different phone from a backup.
-        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        let protection: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+        ]
+        let updateStatus = SecItemUpdate(baseQuery as CFDictionary, protection as CFDictionary)
+        if updateStatus == errSecSuccess { return }
+        guard updateStatus == errSecItemNotFound else { throw VaultError.keychain(status: updateStatus) }
+        var attributes = baseQuery.merging(protection) { _, new in new }
         attributes[kSecAttrSynchronizable as String] = false
         let status = SecItemAdd(attributes as CFDictionary, nil)
         guard status == errSecSuccess else { throw VaultError.keychain(status: status) }

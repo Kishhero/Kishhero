@@ -59,6 +59,9 @@ public actor VaultUnlocker {
     public func setUp(passcode: [UInt8]) throws -> VaultKeyring {
         guard !store.hasVault else { throw VaultError.vaultAlreadyExists }
         try PasscodePolicy.validate(passcode)
+        // Leftovers of an erase that was interrupted: without a header none
+        // of it can be decrypted, and it would break the new vault's catalog.
+        try store.eraseFiles()
         let parameters: KDFParameters
         switch parameterChoice {
         case .calibrated: parameters = try Argon2idKDF().calibratedParameters()
@@ -98,6 +101,7 @@ public actor VaultUnlocker {
     /// unwrapped again, even if deleting the files is interrupted halfway.
     public func erase() throws {
         try keys.deviceSecret.destroySecret()
+        try store.removeHeader()
         try store.eraseFiles()
         try throttle.reset()
     }
@@ -110,7 +114,9 @@ public actor VaultUnlocker {
         let previous = try throttle.beginAttempt(now: now)
         do {
             let value = try operation()
-            try throttle.recordSuccess()
+            // The vault is already open (or the header already rewritten);
+            // failing to reset the counter must not report that as an error.
+            try? throttle.recordSuccess()
             return .success(value)
         } catch VaultError.wrongPasscode {
             if try throttle.shouldErase(now: now) {

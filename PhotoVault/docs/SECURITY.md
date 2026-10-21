@@ -203,6 +203,21 @@ decrypting the whole file, and memory use stays flat for 4K video.
   went to Photos unencrypted, so it can be deleted.
 - **Memory pressure:** decrypted thumbnails are dropped on a memory warning
   instead of letting iOS terminate the app.
+- **Locked sessions can't come back:** iOS may suspend an import or export at
+  lock time and resume it after the next unlock. Locking cancels that work,
+  and encryption checks for cancellation every 256 KiB, so it stops quickly.
+  Reopening and erasing wait for it to finish, and the old session's catalog
+  is then closed, so a late task can never write over a newer session.
+- **Originals are only offered for deletion once saved:** if the final
+  catalog save of an import fails, the app keeps the originals in Photos and
+  says so.
+- **A way out of an unrecoverable vault:** if the device secret is gone or the
+  vault's files are damaged beyond the backup, the lock screen offers "Erase
+  Vault and Start Over" (with confirmation). A temporary file error never
+  offers this. Erase deletes the header right after the device secret, and
+  setup clears anything an interrupted erase left behind.
+- **Attempt counter writes update in place**, so a failed Keychain write never
+  resets the counter or turns off "Erase after 10 failed attempts".
 - **Instrumentation:** signposts show unlock, import, thumbnail and decode
   timing in Instruments. They carry no names or data.
 - **Tests:** performance baselines for encryption, seeking and catalog saves,

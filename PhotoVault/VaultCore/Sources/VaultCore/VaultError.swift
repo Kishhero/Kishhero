@@ -18,6 +18,8 @@ public enum VaultError: Error, Equatable, Sendable {
     /// No item with that ID is in the catalog.
     case itemNotFound
     case albumNotFound
+    /// The library was closed (the vault locked); no more writes are accepted.
+    case vaultClosed
     /// Album names must have 1 to `Album.maximumNameLength` visible characters.
     case invalidAlbumName
     /// The hardware-bound secret is gone (Keychain item deleted or wiped).

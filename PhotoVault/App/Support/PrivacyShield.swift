@@ -39,15 +39,26 @@ final class PrivacyShield {
         observers.append(center.addObserver(forName: UIScene.didActivateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.isInactive = false
-                self?.update()
+                self?.refreshCaptureState()
             }
         })
         observers.append(center.addObserver(forName: UIScreen.capturedDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.isCaptured = Self.anySceneCaptured()
-                self?.update()
+                self?.refreshCaptureState()
+            }
+            // The scene's trait may update just after this notification;
+            // look again on the next turn of the run loop.
+            DispatchQueue.main.async { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.refreshCaptureState()
+                }
             }
         })
+    }
+
+    private func refreshCaptureState() {
+        isCaptured = Self.anySceneCaptured()
+        update()
     }
 
     private func update() {

@@ -34,7 +34,11 @@ public struct BlobStore: Sendable {
         do {
             let handle = try FileHandle(forWritingTo: temporary)
             do {
-                try StreamCipher.encrypt(source, key: key, context: context) { try handle.write(contentsOf: $0) }
+                try StreamCipher.encrypt(source, key: key, context: context) { chunk in
+                    // Locking cancels the import: stop within one chunk, not at the end of a 2 GB video.
+                    try Task.checkCancellation()
+                    try handle.write(contentsOf: chunk)
+                }
                 try handle.synchronize()
                 try handle.close()
             } catch {

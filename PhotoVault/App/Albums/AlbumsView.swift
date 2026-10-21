@@ -74,28 +74,25 @@ struct AlbumsView: View {
                 Task { await library.createAlbum(named: name) }
             }
         }
-        .alert("Rename Album", isPresented: presence(of: $renamingAlbum)) {
+        .alert("Rename Album", isPresented: presence(of: $renamingAlbum), presenting: renamingAlbum) { album in
             TextField("Name", text: $renameText)
                 .autocorrectionDisabled()
             Button("Cancel", role: .cancel) {}
             Button("Save") {
-                if let album = renamingAlbum {
-                    let name = renameText
-                    Task { await library.renameAlbum(album.id, to: name) }
-                }
+                let name = renameText
+                Task { await library.renameAlbum(album.id, to: name) }
             }
         }
         .confirmationDialog(
-            "Delete “\(deletingAlbum?.name ?? "")”?",
+            "Delete this album?",
             isPresented: presence(of: $deletingAlbum),
-            titleVisibility: .visible
-        ) {
-            Button("Delete Album", role: .destructive) {
-                if let album = deletingAlbum {
-                    Task { await library.deleteAlbum(album.id) }
-                }
+            titleVisibility: .visible,
+            presenting: deletingAlbum
+        ) { album in
+            Button("Delete “\(album.name)”", role: .destructive) {
+                Task { await library.deleteAlbum(album.id) }
             }
-        } message: {
+        } message: { _ in
             Text("The photos and videos in it stay in your library.")
         }
     }

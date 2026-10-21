@@ -288,7 +288,7 @@ struct ProgressBanner: View {
 }
 
 /// Presents an alert while an optional value is set, and clears it on dismiss.
-func presence<Value>(of value: Binding<Value?>) -> Binding<Bool> {
+func presence<Value: Sendable>(of value: Binding<Value?>) -> Binding<Bool> {
     Binding(
         get: { value.wrappedValue != nil },
         set: { if !$0 { value.wrappedValue = nil } }

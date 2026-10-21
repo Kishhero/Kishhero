@@ -46,8 +46,17 @@ struct PasscodeEntryView: View {
                 .multilineTextAlignment(.center)
 
             input
-                .modifier(Shake(animatableData: CGFloat(failureCount)))
-                .animation(.default, value: failureCount)
+                .keyframeAnimator(initialValue: 0.0, trigger: failureCount) { content, offset in
+                    content.offset(x: offset)
+                } keyframes: { _ in
+                    KeyframeTrack {
+                        LinearKeyframe(-12, duration: 0.06)
+                        LinearKeyframe(12, duration: 0.08)
+                        LinearKeyframe(-8, duration: 0.08)
+                        LinearKeyframe(8, duration: 0.08)
+                        LinearKeyframe(0, duration: 0.06)
+                    }
+                }
 
             status
                 .frame(minHeight: 44)
@@ -134,11 +143,3 @@ struct PasscodeEntryView: View {
     }
 }
 
-/// Side-to-side shake for a wrong passcode.
-struct Shake: GeometryEffect {
-    var animatableData: CGFloat
-
-    func effectValue(size: CGSize) -> ProjectionTransform {
-        ProjectionTransform(CGAffineTransform(translationX: 10 * sin(animatableData * .pi * 4), y: 0))
-    }
-}
