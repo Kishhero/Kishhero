@@ -84,10 +84,41 @@ decrypting the whole file, and memory use stays flat for 4K video.
 - **Padmé padding** rounds sizes up, so similar files become exactly the same
   size.
 
+## Lock screen
+
+- **Every launch, and every return to the app, asks for the passcode.** Keys
+  are dropped the moment the app reaches the background. If an unlock finishes
+  after that, its result is thrown away and the vault stays locked.
+- **The PIN keypad is drawn by the app.** Third-party keyboards are blocked
+  app-wide, so no keyboard extension sees the passcode or album names. The
+  passcode is kept as raw bytes, which are wiped as soon as they have been used.
+  Passphrase mode uses SwiftUI's `SecureField`, which holds an unwipeable
+  `String`; it is cleared right after use.
+- **Attempt limits:**
+  - 4 free tries, then 30 s, 1 min, 5 min, 15 min, and 1 hour per try.
+  - An attempt is counted before its result is known, so killing the app
+    mid-check doesn't give a free guess.
+  - Errors unrelated to the passcode (a Keychain or file error) don't use up
+    an attempt.
+  - The counter lives in the Keychain, so it survives deleting the app's files.
+  - Turning the clock back restarts the wait. Turning it forward skips it:
+    this is a deterrent, not a cryptographic control.
+- **Erase after 10 wrong attempts** (opt-in) destroys the device secret first,
+  so the vault is unrecoverable even if deleting the files is interrupted.
+- **App switcher and system sheets:** a cover is drawn whenever the app isn't
+  active, so the snapshot iOS saves for the app switcher never shows a photo.
+- **Screen recording and mirroring:** vault content is hidden while the screen
+  is being captured. iOS gives apps no way to block screenshots.
+- **No Mac or Vision Pro builds:** "Designed for iPhone" on Mac and on Vision
+  Pro is turned off, because the iPhone's Data Protection and Secure Enclave
+  guarantees don't carry over there.
+
 ## Things that still leak
 
 - The number of encrypted files, and their rough sizes (a photo versus a long video).
 - That the app is installed.
+- Whether the passcode is digits or a passphrase, and whether the keypad is
+  shuffled (two UserDefaults display settings).
 - Short-lived plaintext on disk, both in protected storage:
   - the photo picker's temporary copy while an item is encrypted on import
   - the temporary file handed to Photos on export, which is moved, not copied
@@ -107,7 +138,7 @@ decrypting the whole file, and memory use stays flat for 4K video.
 | Control | Status |
 |---|---|
 | MASVS-STORAGE-1 (sensitive data stored securely) | Encryption above; `NSFileProtectionComplete`; Keychain `WhenUnlockedThisDeviceOnly` |
-| MASVS-STORAGE-2 (no leakage) | Excluded from backups; no logs of content, names or keys; no clipboard; third-party keyboards blocked (step 2) |
+| MASVS-STORAGE-2 (no leakage) | Excluded from backups; no logs of content, names or keys; no clipboard; third-party keyboards blocked |
 | MASVS-CRYPTO-1 (strong, current crypto) | AES-256-GCM, Argon2id, HKDF-SHA256, P-256 ECDH; platform CSPRNG; no custom primitives |
 | MASVS-CRYPTO-2 (key management) | Secure Enclave binding, key separation by HKDF label, per-item keys, keys only in memory while unlocked |
 | MASVS-AUTH-2 (local auth done right) | The passcode derives the key, so there is no yes/no check to patch out |
@@ -115,7 +146,7 @@ decrypting the whole file, and memory use stays flat for 4K video.
 | MASVS-NETWORK-1/2 | Not applicable: no network code at all |
 | MASVS-PLATFORM-1 (secure IPC) | Only the system photo picker and Photos add-only; no URL schemes, no extensions |
 | MASVS-PLATFORM-2 (WebViews) | Not applicable: none |
-| MASVS-PLATFORM-3 (UI leaks) | Blank app-switcher snapshot; blur during screen recording (step 2) |
+| MASVS-PLATFORM-3 (UI leaks) | Blank app-switcher snapshot; content hidden during screen recording and mirroring |
 | MASVS-CODE-1–4 | iOS 17 minimum; one pinned dependency (libsodium); imported media parsed only by Apple's ImageIO and AVFoundation |
 | MASVS-RESILIENCE | Deliberately skipped. Jailbreak and tamper checks can be bypassed and only matter after the encryption is beaten |
-| MASVS-PRIVACY-1–4 | System picker instead of library access; no tracking or data collection; optional GPS removal; real deletion |
+| MASVS-PRIVACY-1–4 | System picker instead of library access; privacy manifest declaring no tracking and no data collection; optional GPS removal; real deletion |

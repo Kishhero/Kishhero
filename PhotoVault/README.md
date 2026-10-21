@@ -12,9 +12,9 @@ to save them back.
 
 | Step | Content | State |
 |---|---|---|
-| 1 | VaultCore encryption: key hierarchy, Secure Enclave binding, streaming AES-GCM, Padmé | **Code and tests written; Swift tests not yet run** |
-| 2 | First-run passcode setup, lock screen, lock on background | Next |
-| 3 | Import, encrypted blob store and catalog, thumbnails | |
+| 1 | VaultCore encryption: key hierarchy, Secure Enclave binding, streaming AES-GCM, Padmé | Written; Swift tests not yet run |
+| 2 | Xcode project, first-run setup, lock screen, attempt limits, lock on background, settings | Written; not yet built |
+| 3 | Import, encrypted blob store and catalog, thumbnails | Next |
 | 4 | Grid, photo viewer, video player | |
 | 5 | Albums | |
 | 6 | Multi-select: delete, move, save to Photos | |
@@ -23,12 +23,32 @@ to save them back.
 ## Layout
 
 ```
-VaultCore/                 Swift package: all crypto and formats, no UI
+PhotoVault.xcodeproj       the iOS app (folders below are picked up automatically)
+App/                       SwiftUI app: lock screen, setup, settings
+AppTests/                  on-device tests: Secure Enclave, Keychain, real Argon2 timing
+VaultCore/                 Swift package: all crypto, formats and lock logic, no UI
   Sources/VaultCore/
   Tests/VaultCoreTests/    Swift Testing suites + generated ReferenceVectors.swift
 tools/reference/           independent Python implementation of the formats
 docs/
 ```
+
+## Running the app on your iPhone
+
+1. Open `PhotoVault/PhotoVault.xcodeproj` in Xcode 16 or newer.
+2. Select the **PhotoVault** target, open **Signing & Capabilities**, and pick
+   your Team. A free Apple ID works. If the bundle ID `com.kishhero.PhotoVault`
+   is taken, change it to anything unique.
+3. On the iPhone, turn on **Settings → Privacy & Security → Developer Mode**.
+4. Choose your iPhone as the run destination and press Run (⌘R).
+
+With a free Apple ID the install expires after 7 days. Press Run again to
+renew it; the vault survives as long as you don't delete the app.
+
+Run the on-device tests with **Product → Test (⌘U)** with the iPhone selected.
+The Secure Enclave tests are skipped on the Simulator, which has no Secure
+Enclave. The tests use their own Keychain names and temporary folders, so they
+never touch the real vault.
 
 ## Running the tests
 

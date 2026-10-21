@@ -11,7 +11,11 @@ import Crypto
 /// Key separation: the master key itself encrypts nothing. Each job gets its
 /// own key derived with HKDF and a distinct label, so a flaw in how one key
 /// is used cannot leak another.
-public struct VaultKeyring {
+///
+/// `@unchecked Sendable`: every stored property is an immutable `let` of an
+/// immutable value type, so sharing it across tasks is safe. (Spelled out
+/// because not every SDK marks CryptoKit's `SymmetricKey` as `Sendable`.)
+public struct VaultKeyring: @unchecked Sendable {
     let masterKey: SymmetricKey
     /// Encrypts the catalog file (`index.enc`).
     public let indexKey: SymmetricKey

@@ -41,7 +41,7 @@ public struct KDFParameters: Equatable, Sendable {
 
 /// Turns a passcode into a key. Abstracted so tests can count calls or swap
 /// in cheaper settings; the app always uses `Argon2idKDF`.
-public protocol PasswordKDF {
+public protocol PasswordKDF: Sendable {
     func deriveKey(passcode: [UInt8], salt: [UInt8], parameters: KDFParameters) throws -> SymmetricKey
 }
 

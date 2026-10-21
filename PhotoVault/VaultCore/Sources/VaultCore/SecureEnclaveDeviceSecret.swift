@@ -24,10 +24,15 @@ import Security
 /// which can ask the Enclave to compute the secret.
 public struct SecureEnclaveDeviceSecret: DeviceSecretProvider {
     public var binding: DeviceBinding { .secureEnclave }
-    private let enclaveKeyItem = KeychainItem(service: "PhotoVault.deviceBinding", account: "secure-enclave-key")
-    private let partnerKeyItem = KeychainItem(service: "PhotoVault.deviceBinding", account: "partner-public-key")
+    private let enclaveKeyItem: KeychainItem
+    private let partnerKeyItem: KeychainItem
 
-    public init() {}
+    /// - Parameter service: Keychain service name. Tests must pass their own
+    ///   so they never touch, or destroy, the real vault's secret.
+    public init(service: String = DeviceSecrets.defaultService) {
+        enclaveKeyItem = KeychainItem(service: service, account: "secure-enclave-key")
+        partnerKeyItem = KeychainItem(service: service, account: "partner-public-key")
+    }
 
     public static var isAvailable: Bool { SecureEnclave.isAvailable }
 
@@ -87,13 +92,13 @@ public struct SecureEnclaveDeviceSecret: DeviceSecretProvider {
     }
 }
 
-public enum DeviceSecrets {
+extension DeviceSecrets {
     /// The Secure Enclave on a real iPhone, a Keychain secret on the Simulator.
-    public static func platformDefault() -> any DeviceSecretProvider {
+    public static func platformDefault(service: String = defaultService) -> any DeviceSecretProvider {
         #if targetEnvironment(simulator)
-        return KeychainDeviceSecret()
+        return KeychainDeviceSecret(service: service)
         #else
-        return SecureEnclaveDeviceSecret()
+        return SecureEnclaveDeviceSecret(service: service)
         #endif
     }
 }

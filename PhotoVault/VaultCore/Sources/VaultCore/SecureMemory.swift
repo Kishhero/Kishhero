@@ -1,6 +1,6 @@
 import Sodium
 
-enum SecureMemory {
+public enum SecureMemory {
     /// Overwrites a buffer holding secret material with zeros, using libsodium's
     /// `sodium_memzero`, which the compiler cannot optimize away.
     ///
@@ -9,7 +9,7 @@ enum SecureMemory {
     /// Does not protect against: copies Swift made that we no longer reference
     /// (arrays are copy-on-write), or an attacker reading memory while the vault
     /// is open. This is best-effort hygiene, not a guarantee.
-    static func zero(_ bytes: inout [UInt8]) {
+    public static func zero(_ bytes: inout [UInt8]) {
         Sodium().utils.zero(&bytes)
     }
 }

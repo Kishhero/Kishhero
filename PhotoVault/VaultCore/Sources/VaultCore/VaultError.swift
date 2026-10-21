@@ -10,6 +10,8 @@ public enum VaultError: Error, Equatable, Sendable {
     case passcodeLength(minimum: Int, maximum: Int)
     /// The vault header was created with a different kind of device binding.
     case deviceBindingMismatch
+    /// Refused to create a vault over an existing one, which would destroy it.
+    case vaultAlreadyExists
     /// The hardware-bound secret is gone (Keychain item deleted or wiped).
     case deviceSecretMissing
     case secureEnclaveUnavailable

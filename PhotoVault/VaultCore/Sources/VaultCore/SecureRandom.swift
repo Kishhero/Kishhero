@@ -7,7 +7,7 @@ import Security
 ///
 /// Production code only ever uses `SecureRandom`. The protocol exists so tests
 /// can replay fixed bytes and reproduce the reference vectors exactly.
-protocol RandomBytesGenerator {
+protocol RandomBytesGenerator: Sendable {
     func bytes(_ count: Int) throws -> [UInt8]
 }
 

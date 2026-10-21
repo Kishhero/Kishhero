@@ -25,7 +25,7 @@ public enum DeviceBinding: UInt8, Sendable {
 /// Does not protect against: an attacker who can run code on this phone while
 /// it is unlocked. They can obtain the secret once and then guess offline,
 /// which is why passcode length still matters.
-public protocol DeviceSecretProvider {
+public protocol DeviceSecretProvider: Sendable {
     var binding: DeviceBinding { get }
     /// Creates a fresh secret, destroying any previous one. Any vault sealed
     /// with the old secret can never be opened again.

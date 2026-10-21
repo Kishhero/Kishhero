@@ -65,6 +65,7 @@ Keychain items, all `WhenUnlockedThisDeviceOnly` and not synchronizable:
 | `PhotoVault.deviceBinding` | `secure-enclave-key` | enclave key `dataRepresentation` (only usable by this phone's Enclave) |
 | `PhotoVault.deviceBinding` | `partner-public-key` | partner public key, X9.63 |
 | `PhotoVault.deviceBinding` | `keychain-secret` | Simulator only: 32 random bytes |
+| `PhotoVault.unlockThrottle` | `state` | JSON: failed attempts, lockout end, last attempt time, erase setting (no secrets) |
 
 ## Subkeys
 

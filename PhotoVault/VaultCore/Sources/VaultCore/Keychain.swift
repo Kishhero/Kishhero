@@ -64,9 +64,13 @@ struct KeychainItem {
 /// this on a real device.
 public struct KeychainDeviceSecret: DeviceSecretProvider {
     public var binding: DeviceBinding { .keychain }
-    private let item = KeychainItem(service: "PhotoVault.deviceBinding", account: "keychain-secret")
+    private let item: KeychainItem
 
-    public init() {}
+    /// - Parameter service: Keychain service name. Tests must pass their own
+    ///   so they never touch, or destroy, the real vault's secret.
+    public init(service: String = DeviceSecrets.defaultService) {
+        item = KeychainItem(service: service, account: "keychain-secret")
+    }
 
     public func createSecret() throws -> SymmetricKey {
         var bytes = try SecureRandom().bytes(Format.Header.keySize)
@@ -86,4 +90,32 @@ public struct KeychainDeviceSecret: DeviceSecretProvider {
         try item.delete()
     }
 }
+
+/// Keeps the failed-attempt counter in the Keychain rather than in the app's
+/// files, so deleting the vault folder or restoring an old backup of the app's
+/// preferences does not reset it.
+public struct KeychainThrottleStore: ThrottleStateStore {
+    private let item: KeychainItem
+
+    public init(service: String = "PhotoVault.unlockThrottle") {
+        item = KeychainItem(service: service, account: "state")
+    }
+
+    public func load() throws -> ThrottleState {
+        guard let data = try item.read() else { return ThrottleState() }
+        // Unreadable state starts fresh. Only code that can already write this
+        // app's Keychain could corrupt it, and that code can bypass the
+        // throttle anyway; the real protection is Argon2id plus the device
+        // secret. Refusing to unlock would only lock out the owner.
+        return (try? JSONDecoder().decode(ThrottleState.self, from: data)) ?? ThrottleState()
+    }
+
+    public func save(_ state: ThrottleState) throws {
+        try item.write(JSONEncoder().encode(state))
+    }
+}
 #endif
+
+public enum DeviceSecrets {
+    public static let defaultService = "PhotoVault.deviceBinding"
+}

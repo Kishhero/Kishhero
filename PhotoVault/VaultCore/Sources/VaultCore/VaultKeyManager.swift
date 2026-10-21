@@ -16,7 +16,7 @@ import Crypto
 ///
 /// Every method here runs Argon2id (about 0.5 s): call from a background task,
 /// never the main thread.
-public struct VaultKeyManager {
+public struct VaultKeyManager: Sendable {
     public let kdf: any PasswordKDF
     public let deviceSecret: any DeviceSecretProvider
     /// Always `SecureRandom` outside tests.

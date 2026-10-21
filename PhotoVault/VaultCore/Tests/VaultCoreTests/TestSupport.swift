@@ -75,7 +75,8 @@ func randomData(_ length: Int, seed: UInt64) -> Data {
 
 /// Replays fixed bytes, in order, in place of the system random generator, so
 /// tests can reproduce the reference vectors byte for byte.
-final class FixedRandom: RandomBytesGenerator {
+final class FixedRandom: RandomBytesGenerator, @unchecked Sendable {
+    private let lock = NSLock()
     private var remaining: [UInt8]
 
     init(_ chunks: Data...) {
@@ -83,18 +84,25 @@ final class FixedRandom: RandomBytesGenerator {
     }
 
     func bytes(_ count: Int) throws -> [UInt8] {
+        lock.lock()
+        defer { lock.unlock() }
         precondition(remaining.count >= count, "FixedRandom ran out of bytes")
         defer { remaining.removeFirst(count) }
         return Array(remaining.prefix(count))
     }
 
-    var isExhausted: Bool { remaining.isEmpty }
+    var isExhausted: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return remaining.isEmpty
+    }
 }
 
 /// Stands in for the Secure Enclave. `fixed` makes `createSecret` return a
 /// known value for the reference vectors; otherwise it is random.
-final class InMemoryDeviceSecret: DeviceSecretProvider {
+final class InMemoryDeviceSecret: DeviceSecretProvider, @unchecked Sendable {
     let binding: DeviceBinding
+    private let lock = NSLock()
     private let fixed: SymmetricKey?
     private var secret: SymmetricKey?
 
@@ -104,19 +112,54 @@ final class InMemoryDeviceSecret: DeviceSecretProvider {
     }
 
     func createSecret() throws -> SymmetricKey {
+        lock.lock()
+        defer { lock.unlock() }
         let new = fixed ?? SymmetricKey(size: .bits256)
         secret = new
         return new
     }
 
     func loadSecret() throws -> SymmetricKey {
+        lock.lock()
+        defer { lock.unlock() }
         guard let secret else { throw VaultError.deviceSecretMissing }
         return secret
     }
 
     func destroySecret() throws {
+        lock.lock()
+        defer { lock.unlock() }
         secret = nil
     }
+
+    var exists: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return secret != nil
+    }
+}
+
+final class InMemoryThrottleStore: ThrottleStateStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var state = ThrottleState()
+
+    func load() throws -> ThrottleState {
+        lock.lock()
+        defer { lock.unlock() }
+        return state
+    }
+
+    func save(_ newState: ThrottleState) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        state = newState
+    }
+}
+
+/// A fresh, empty directory under the system temp folder. Never the real vault.
+func temporaryVaultStore() -> VaultStore {
+    VaultStore(directory: FileManager.default.temporaryDirectory
+        .appendingPathComponent("VaultCoreTests-\(UUID().uuidString)", isDirectory: true))
 }
 
 extension KDFParameters {
