@@ -3,13 +3,14 @@ import SwiftUI
 import VaultCore
 
 /// The vault's library: every item in a grid, oldest at the top and newest at
-/// the bottom, like Photos. Step 4 adds the full-screen viewer and player.
+/// the bottom, like Photos. Tap an item to open the full-screen viewer.
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
     let library: LibraryModel
     @State private var showingPicker = false
     @State private var pickerSelection: [PhotosPickerItem] = []
     @State private var showingSettings = false
+    @State private var viewerStart: VaultItem?
 
     var body: some View {
         @Bindable var library = library
@@ -18,7 +19,9 @@ struct LibraryView: View {
                 if library.items.isEmpty && library.importProgress == nil {
                     emptyState
                 } else {
-                    LibraryGrid(library: library)
+                    LibraryGridView(items: library.items, library: library) { item in
+                        viewerStart = item
+                    }
                 }
             }
             .navigationTitle("Library")
@@ -31,6 +34,13 @@ struct LibraryView: View {
                     Button("Add", systemImage: "plus") { showingPicker = true }
                         .disabled(library.importProgress != nil)
                     Button("Settings", systemImage: "gearshape") { showingSettings = true }
+                }
+                if !library.items.isEmpty {
+                    ToolbarItem(placement: .status) {
+                        Text(summary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -76,6 +86,15 @@ struct LibraryView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
+        .fullScreenCover(item: $viewerStart) { start in
+            MediaViewer(library: library, items: library.items, startID: start.id)
+        }
+    }
+
+    private var summary: String {
+        let photos = library.photoCount == 1 ? "1 Photo" : "\(library.photoCount) Photos"
+        let videos = library.videoCount == 1 ? "1 Video" : "\(library.videoCount) Videos"
+        return "\(photos), \(videos)"
     }
 
     private var deletePrompt: String {
@@ -100,72 +119,6 @@ struct LibraryView: View {
             get: { message.wrappedValue != nil },
             set: { if !$0 { message.wrappedValue = nil } }
         )
-    }
-}
-
-private struct LibraryGrid: View {
-    let library: LibraryModel
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
-
-    var body: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 2) {
-                ForEach(library.items) { item in
-                    ThumbnailCell(item: item, library: library)
-                }
-            }
-            Text(summary)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.vertical, 16)
-        }
-        .defaultScrollAnchor(.bottom)
-    }
-
-    private var summary: String {
-        let photos = library.photoCount == 1 ? "1 Photo" : "\(library.photoCount) Photos"
-        let videos = library.videoCount == 1 ? "1 Video" : "\(library.videoCount) Videos"
-        return "\(photos), \(videos)"
-    }
-}
-
-private struct ThumbnailCell: View {
-    let item: VaultItem
-    let library: LibraryModel
-    @State private var image: UIImage?
-
-    var body: some View {
-        Rectangle()
-            .fill(.quaternary)
-            .aspectRatio(1, contentMode: .fit)
-            .overlay {
-                if let image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                }
-            }
-            .clipped()
-            .overlay(alignment: .bottomTrailing) {
-                if item.kind == .video, let duration = item.duration {
-                    Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .shadow(radius: 2)
-                        .padding(4)
-                }
-            }
-            .task(id: item.id) {
-                image = await library.thumbnail(for: item)
-            }
-            .accessibilityElement()
-            .accessibilityLabel(accessibilityText)
-            .accessibilityAddTraits(.isImage)
-    }
-
-    private var accessibilityText: String {
-        let date = item.sortDate.formatted(date: .abbreviated, time: .omitted)
-        return item.kind == .video ? "Video, \(date)" : "Photo, \(date)"
     }
 }
 

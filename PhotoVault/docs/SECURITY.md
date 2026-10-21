@@ -105,8 +105,10 @@ decrypting the whole file, and memory use stays flat for 4K video.
     this is a deterrent, not a cryptographic control.
 - **Erase after 10 wrong attempts** (opt-in) destroys the device secret first,
   so the vault is unrecoverable even if deleting the files is interrupted.
-- **App switcher and system sheets:** a cover is drawn whenever the app isn't
-  active, so the snapshot iOS saves for the app switcher never shows a photo.
+- **App switcher and system sheets:** a cover window sits above everything,
+  open sheets and the viewer included, whenever the app isn't active. The
+  snapshot iOS saves for the app switcher never shows a photo. (Step 2 used an
+  overlay on the main view, which didn't cover sheets; fixed in step 4.)
 - **Screen recording and mirroring:** vault content is hidden while the screen
   is being captured. iOS gives apps no way to block screenshots.
 - **No Mac or Vision Pro builds:** "Designed for iPhone" on Mac and on Vision
@@ -143,6 +145,27 @@ decrypting the whole file, and memory use stays flat for 4K video.
   moment finishes first (a few seconds for a large video), so its key stays in
   memory that long.
 
+## Viewing
+
+- **Photos** are decrypted into memory and decoded at screen size. Full
+  resolution (up to 6144 px) is decoded only when you zoom in, and only for
+  the photo on screen. Nothing decrypted is written to disk.
+- **Videos** stream through a custom AVFoundation resource loader that
+  decrypts only the 256 KiB chunks the player asks for. There is no
+  decrypted temporary file, and AVFoundation keeps no disk cache for these
+  assets.
+  - A chunk that fails authentication stops playback, so tampered bytes never
+    reach the decoder.
+  - Only the video on screen is decrypting; the player is torn down when you
+    swipe away.
+- **Turned off for vault videos**, because each would show vault content
+  outside the app:
+  - Picture in Picture, which keeps playing after the vault locks
+  - AirPlay, which sends the video over the network
+  - the "Now Playing" card on the lock screen and in Control Center
+- **Locking closes the viewer:** the library view goes away, and with it the
+  viewer, the player and every decrypted image.
+
 ## Things that still leak
 
 - The number of encrypted files, and their rough sizes (a photo versus a long video).
@@ -164,6 +187,9 @@ decrypting the whole file, and memory use stays flat for 4K video.
 | Lock delay | None, lock on leaving the app | Matches "passcode every launch" |
 | Thumbnails | 512 px JPEG, decrypted into memory only, dropped on lock | Smooth scrolling without plaintext on disk |
 | Import | 2 items at a time; catalog saved every 10 | Flat memory use; a crash loses at most 10 items |
+| Photo viewer | Screen-size decode; full resolution only when zoomed, capped at 6144 px | About 40 MB per page instead of up to 190 MB |
+| Video | Decrypt 1 MiB per response, on demand | Instant seeking; no plaintext file |
+| Grid | UICollectionView, prefetching, one shared decrypt per thumbnail | Smooth scrolling with tens of thousands of items |
 | Padding | On | Your choice; costs up to 11.6% storage |
 
 ## OWASP MASVS v2 mapping

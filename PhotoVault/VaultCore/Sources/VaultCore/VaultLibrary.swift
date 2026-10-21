@@ -95,6 +95,19 @@ public final class VaultLibrary: Sendable {
         return try blobs.open(item.thumbnailBlob, key: keys.thumbnail, context: BlobContext.thumbnail(item.id)).readAll()
     }
 
+    /// The whole original in memory. For photos; stream videos with
+    /// `originalDecryptor(for:)` instead.
+    public func originalData(for item: VaultItem) throws -> Data {
+        try originalDecryptor(for: item).readAll()
+    }
+
+    /// Random-access reader for the original, decrypting one chunk at a time.
+    /// Not thread-safe: use each one from a single queue.
+    public func originalDecryptor(for item: VaultItem) throws -> StreamDecryptor {
+        let keys = try ItemKeys(itemKey: keyring.unwrapItemKey(item.wrappedKey, itemID: item.id))
+        return try blobs.open(item.originalBlob, key: keys.original, context: BlobContext.original(item.id))
+    }
+
     /// Removes items for good.
     ///
     /// The catalog is saved first and the files deleted after, so a crash in

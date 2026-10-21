@@ -57,6 +57,30 @@ final class LibraryModel {
         await thumbnails.image(for: item, from: vault)
     }
 
+    /// Synchronous cache lookup, so a recycled grid cell can show its image
+    /// immediately instead of flashing a placeholder.
+    func cachedThumbnail(for item: VaultItem) -> UIImage? {
+        thumbnails.cachedImage(for: item.id)
+    }
+
+    /// Starts decrypting thumbnails the grid is about to show.
+    func prefetchThumbnails(for items: [VaultItem]) {
+        for item in items where thumbnails.cachedImage(for: item.id) == nil {
+            Task { _ = await thumbnail(for: item) }
+        }
+    }
+
+    /// Decrypts a photo and decodes it at no more than `maxPixelSize`, off the
+    /// main thread. The decrypted bytes exist only in memory, only for the
+    /// duration of the decode.
+    func displayImage(for item: VaultItem, maxPixelSize: Int) async -> UIImage? {
+        let vault = vault
+        return await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard let data = try? vault.originalData(for: item) else { return nil }
+            return ImageDecoding.image(from: data, maxPixelSize: maxPixelSize)
+        }.value
+    }
+
     /// Stops any import and drops every decrypted thumbnail. Called on lock.
     func close() {
         isClosed = true

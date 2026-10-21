@@ -15,8 +15,8 @@ to save them back.
 | 1 | VaultCore encryption: key hierarchy, Secure Enclave binding, streaming AES-GCM, Padmé | Written; Swift tests not yet run |
 | 2 | Xcode project, first-run setup, lock screen, attempt limits, lock on background, settings | Written; not yet built |
 | 3 | Import from Photos, encrypted blobs and catalog, thumbnails, basic grid, delete originals | Written; not yet built |
-| 4 | Faster grid, photo viewer, video player | Next |
-| 5 | Albums | |
+| 4 | Faster grid, zoomable photo viewer, streaming encrypted video player | Written; not yet built |
+| 5 | Albums | Next |
 | 6 | Multi-select: delete, move, save to Photos | |
 | 7 | Hardening and profiling pass | |
 
@@ -24,7 +24,7 @@ to save them back.
 
 ```
 PhotoVault.xcodeproj       the iOS app (folders below are picked up automatically)
-App/                       SwiftUI app: lock screen, setup, settings
+App/                       the iOS app: lock screen, setup, library grid, viewer, import
 AppTests/                  on-device tests: Secure Enclave, Keychain, real Argon2 timing
 VaultCore/                 Swift package: all crypto, formats and lock logic, no UI
   Sources/VaultCore/

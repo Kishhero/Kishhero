@@ -101,10 +101,10 @@ struct VaultLibraryTests {
         #expect(items == [item])
         #expect(try reopened.thumbnailData(for: items[0]) == thumbnail)
 
-        // The original decrypts back to the exact input bytes.
-        let keys = try ItemKeys(itemKey: fixture.keyring.unwrapItemKey(item.wrappedKey, itemID: item.id))
-        let original = try reopened.blobs.open(item.originalBlob, key: keys.original, context: BlobContext.original(item.id))
-        #expect(try original.readAll() == content)
+        // The original decrypts back to the exact input bytes, whole or in ranges.
+        #expect(try reopened.originalData(for: items[0]) == content)
+        let reader = try reopened.originalDecryptor(for: items[0])
+        #expect(try reader.read(at: 300_000, count: 1_000) == content[300_000..<301_000])
     }
 
     @Test("an item that was never committed is cleaned up on the next unlock")
