@@ -314,6 +314,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = PhotoVault;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "PhotoVault deletes the originals of photos and videos you move into the vault, only when you ask it to. It never reads, copies or uploads your library.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "PhotoVault saves copies of vault items to your library when you choose Save to Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -345,6 +346,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = PhotoVault;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "PhotoVault deletes the originals of photos and videos you move into the vault, only when you ask it to. It never reads, copies or uploads your library.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "PhotoVault saves copies of vault items to your library when you choose Save to Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

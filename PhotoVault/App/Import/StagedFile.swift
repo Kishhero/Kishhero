@@ -12,7 +12,8 @@ import VaultCore
 /// storage: for the few seconds between the picker handing it over and
 /// `VaultLibrary.importFile` finishing. It is protected by iOS Data
 /// Protection (`.complete`), deleted right after encryption, and swept again
-/// at every launch in case the app was killed mid-import.
+/// at every launch in case the app was killed mid-import
+/// (`VaultStore.clearStagingFolders`).
 struct StagedFile: Sendable {
     let url: URL
     let contentType: UTType

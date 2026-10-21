@@ -105,6 +105,11 @@ struct VaultLibraryTests {
         #expect(try reopened.originalData(for: items[0]) == content)
         let reader = try reopened.originalDecryptor(for: items[0])
         #expect(try reader.read(at: 300_000, count: 1_000) == content[300_000..<301_000])
+
+        // Exported for Photos, it is byte-identical to what was imported.
+        let exported = fixture.store.outgoingDirectory.appendingPathComponent("export.bin")
+        try reopened.writeOriginal(of: items[0], to: exported)
+        #expect(try Data(contentsOf: exported) == content)
     }
 
     @Test("an item that was never committed is cleaned up on the next unlock")
@@ -140,9 +145,11 @@ struct VaultLibraryTests {
         try Data([0]).write(to: fixture.store.blobsDirectory.appendingPathComponent("\(UUID().uuidString).tmp"))
         try Data([0]).write(to: fixture.store.blobsDirectory.appendingPathComponent("\(UUID().uuidString).bin"))
         try Data([0]).write(to: fixture.store.incomingDirectory.appendingPathComponent("IMG_0002.HEIC"))
+        try Data([0]).write(to: fixture.store.outgoingDirectory.appendingPathComponent("IMG_0003.HEIC"))
         _ = try await fixture.open()
         #expect(fixture.blobFiles.count == 2)
         #expect(try FileManager.default.contentsOfDirectory(atPath: fixture.store.incomingDirectory.path).isEmpty)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: fixture.store.outgoingDirectory.path).isEmpty)
     }
 
     @Test("delete removes the catalog entry first, then the files")

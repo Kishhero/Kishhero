@@ -16,9 +16,9 @@ to save them back.
 | 2 | Xcode project, first-run setup, lock screen, attempt limits, lock on background, settings | Written; not yet built |
 | 3 | Import from Photos, encrypted blobs and catalog, thumbnails, basic grid, delete originals | Written; not yet built |
 | 4 | Faster grid, zoomable photo viewer, streaming encrypted video player | Written; not yet built |
-| 5 | Albums | Next |
-| 6 | Multi-select: delete, move, save to Photos | |
-| 7 | Hardening and profiling pass | |
+| 5 | Albums: create, rename, delete, add and remove items, import into an album | Written; not yet built |
+| 6 | Multi-select (tap or two-finger swipe), delete, add to album, Save to Photos with optional location removal | Written; not yet built |
+| 7 | Hardening and profiling pass | Next |
 
 ## Layout
 

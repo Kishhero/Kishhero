@@ -116,6 +116,50 @@ public actor VaultCatalog {
         return removed
     }
 
+    // MARK: Albums
+
+    func createAlbum(named name: String, now: Date) throws -> Album {
+        let album = Album(id: UUID(), name: try Album.validatedName(name), itemIDs: [], createdAt: now)
+        document.albums.append(album)
+        isDirty = true
+        return album
+    }
+
+    func renameAlbum(_ id: UUID, to name: String) throws {
+        let index = try albumIndex(id)
+        document.albums[index].name = try Album.validatedName(name)
+        isDirty = true
+    }
+
+    /// Deletes the album only; its items stay in the library, as in Photos.
+    func deleteAlbum(_ id: UUID) throws {
+        document.albums.remove(at: try albumIndex(id))
+        isDirty = true
+    }
+
+    /// Appends items not already in the album, in the order given. IDs that
+    /// aren't in the library are ignored.
+    func addItems(_ ids: [UUID], toAlbum id: UUID) throws {
+        let index = try albumIndex(id)
+        let known = Set(document.items.map(\.id))
+        var present = Set(document.albums[index].itemIDs)
+        for itemID in ids where known.contains(itemID) && present.insert(itemID).inserted {
+            document.albums[index].itemIDs.append(itemID)
+        }
+        isDirty = true
+    }
+
+    func removeItems(_ ids: Set<UUID>, fromAlbum id: UUID) throws {
+        let index = try albumIndex(id)
+        document.albums[index].itemIDs.removeAll { ids.contains($0) }
+        isDirty = true
+    }
+
+    private func albumIndex(_ id: UUID) throws -> Int {
+        guard let index = document.albums.firstIndex(where: { $0.id == id }) else { throw VaultError.albumNotFound }
+        return index
+    }
+
     func referencedBlobs() -> Set<UUID> {
         Set(document.items.flatMap { [$0.originalBlob, $0.thumbnailBlob] })
     }

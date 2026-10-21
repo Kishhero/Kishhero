@@ -37,7 +37,7 @@ public final class VaultLibrary: Sendable {
         // its blobs before adding them to the catalog.
         let referenced = await catalog.referencedBlobs()
         _ = try blobs.removeAll(except: referenced)
-        store.clearIncoming()
+        store.clearStagingFolders()
         return library
     }
 
@@ -106,6 +106,64 @@ public final class VaultLibrary: Sendable {
     public func originalDecryptor(for item: VaultItem) throws -> StreamDecryptor {
         let keys = try ItemKeys(itemKey: keyring.unwrapItemKey(item.wrappedKey, itemID: item.id))
         return try blobs.open(item.originalBlob, key: keys.original, context: BlobContext.original(item.id))
+    }
+
+    /// Decrypts an original into a new file, 1 MiB at a time, with complete
+    /// file protection. For handing to Photos, which then takes the file; the
+    /// caller deletes it if that fails.
+    public func writeOriginal(of item: VaultItem, to url: URL) throws {
+        let reader = try originalDecryptor(for: item)
+        guard FileManager.default.createFile(atPath: url.path, contents: nil, attributes: BlobStore.newFileAttributes) else {
+            throw VaultError.truncatedSource
+        }
+        do {
+            let handle = try FileHandle(forWritingTo: url)
+            defer { try? handle.close() }
+            var offset: UInt64 = 0
+            while offset < reader.contentLength {
+                let chunk = try reader.read(at: offset, count: 1 << 20)
+                try handle.write(contentsOf: chunk)
+                offset += UInt64(chunk.count)
+            }
+            try handle.synchronize()
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            throw error
+        }
+    }
+
+    // MARK: Albums
+
+    /// All albums, in the order they were created.
+    public func albums() async -> [Album] {
+        await catalog.albums
+    }
+
+    /// Album changes are small and user-initiated, so each one is saved right away.
+    public func createAlbum(named name: String, now: Date = Date()) async throws -> Album {
+        let album = try await catalog.createAlbum(named: name, now: now)
+        try await catalog.saveIfNeeded()
+        return album
+    }
+
+    public func renameAlbum(_ id: UUID, to name: String) async throws {
+        try await catalog.renameAlbum(id, to: name)
+        try await catalog.saveIfNeeded()
+    }
+
+    public func deleteAlbum(_ id: UUID) async throws {
+        try await catalog.deleteAlbum(id)
+        try await catalog.saveIfNeeded()
+    }
+
+    public func addItems(_ ids: [UUID], toAlbum id: UUID) async throws {
+        try await catalog.addItems(ids, toAlbum: id)
+        try await catalog.saveIfNeeded()
+    }
+
+    public func removeItems(_ ids: Set<UUID>, fromAlbum id: UUID) async throws {
+        try await catalog.removeItems(ids, fromAlbum: id)
+        try await catalog.saveIfNeeded()
     }
 
     /// Removes items for good.

@@ -39,8 +39,18 @@ public struct VaultItem: Codable, Identifiable, Hashable, Sendable {
 public struct Album: Codable, Identifiable, Hashable, Sendable {
     public let id: UUID
     public var name: String
+    /// In the order items were added.
     public var itemIDs: [UUID]
     public let createdAt: Date
+
+    public static let maximumNameLength = 100
+
+    /// Trims surrounding whitespace and checks the length.
+    public static func validatedName(_ name: String) throws -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= maximumNameLength else { throw VaultError.invalidAlbumName }
+        return trimmed
+    }
 }
 
 /// What the importer learned about a file before encrypting it.

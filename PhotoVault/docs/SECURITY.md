@@ -166,6 +166,32 @@ decrypting the whole file, and memory use stays flat for 4K video.
 - **Locking closes the viewer:** the library view goes away, and with it the
   viewer, the player and every decrypted image.
 
+## Albums, deleting and saving to Photos
+
+- **Albums** live only inside the encrypted catalog: names, contents and
+  order. An album lists item IDs, so an item can be in several albums
+  without being copied. Album names are typed with autocorrection off, so
+  the keyboard doesn't learn them.
+- **Deleting** (one item, or many with multi-select) removes items from the
+  catalog and from every album, then deletes their files. Item keys go with
+  the catalog entries, and deleting a file destroys its iOS per-file key, so
+  nothing deleted can be recovered. There is no Recently Deleted, as you
+  chose.
+- **Save to Photos** uses add-only access: the app can add to your library
+  but never read it.
+  - Each item is decrypted, 1 MiB at a time, into `outgoing/` (complete file
+    protection). Photos then *moves* the file into its library, so no
+    plaintext copy stays in the app.
+  - Items are saved one at a time, so at most one decrypted file exists at
+    any moment. Anything left over is deleted at once, and `outgoing/` is
+    swept at every launch.
+  - **Save Without Location** removes GPS data first. For photos the image
+    data is copied untouched where ImageIO can rewrite metadata in place, and
+    re-encoded otherwise. For videos, Apple's `forSharing` metadata filter
+    is applied in a passthrough export, with no re-encoding.
+  - The prompt says plainly that saved copies are ordinary photos, outside
+    the vault's encryption, and go to iCloud if iCloud Photos is on.
+
 ## Things that still leak
 
 - The number of encrypted files, and their rough sizes (a photo versus a long video).
@@ -208,4 +234,4 @@ decrypting the whole file, and memory use stays flat for 4K video.
 | MASVS-PLATFORM-3 (UI leaks) | Blank app-switcher snapshot; content hidden during screen recording and mirroring |
 | MASVS-CODE-1–4 | iOS 17 minimum; one pinned dependency (libsodium); imported media parsed only by Apple's ImageIO and AVFoundation |
 | MASVS-RESILIENCE | Deliberately skipped. Jailbreak and tamper checks can be bypassed and only matter after the encryption is beaten |
-| MASVS-PRIVACY-1–4 | System picker instead of library access; privacy manifest declaring no tracking and no data collection; optional GPS removal; real deletion |
+| MASVS-PRIVACY-1–4 | System picker instead of library access; add-only access for saving; privacy manifest declaring no tracking and no data collection; optional GPS removal on export; real deletion |

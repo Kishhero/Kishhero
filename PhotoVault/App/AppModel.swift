@@ -56,7 +56,7 @@ final class AppModel {
         // Unencrypted leftovers from an import interrupted by a crash. Needs no
         // keys, and runs off the launch path.
         Task.detached(priority: .utility) {
-            store.clearIncoming()
+            store.clearStagingFolders()
         }
     }
 

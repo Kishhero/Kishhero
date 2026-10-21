@@ -43,6 +43,12 @@ public struct VaultStore: Sendable {
         directory.appendingPathComponent("incoming", isDirectory: true)
     }
 
+    /// Where an item being saved back to Photos is decrypted, for the moment
+    /// before Photos takes the file. Swept like `incoming/`.
+    public var outgoingDirectory: URL {
+        directory.appendingPathComponent("outgoing", isDirectory: true)
+    }
+
     /// Cheap enough for app launch: a single metadata lookup, which works even
     /// while file contents are protected.
     public var hasVault: Bool {
@@ -52,7 +58,7 @@ public struct VaultStore: Sendable {
     /// Creates the folders with complete file protection, excluded from backups.
     public func prepare() throws {
         let fileManager = FileManager.default
-        for folder in [directory, blobsDirectory, incomingDirectory] {
+        for folder in [directory, blobsDirectory, incomingDirectory, outgoingDirectory] {
             try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
             #if os(iOS)
             // New files inherit the folder's protection class; set it explicitly
@@ -77,14 +83,15 @@ public struct VaultStore: Sendable {
         try header.encoded.write(to: headerURL, options: Self.writeOptions)
     }
 
-    /// Deletes anything left in `incoming/`. Needs no keys, so it is safe at launch.
-    public func clearIncoming() {
+    /// Deletes anything left unencrypted in `incoming/` or `outgoing/` by an
+    /// interrupted import or export. Needs no keys, so it is safe at launch.
+    public func clearStagingFolders() {
         let fileManager = FileManager.default
-        guard let leftovers = try? fileManager.contentsOfDirectory(at: incomingDirectory, includingPropertiesForKeys: nil) else {
-            return
-        }
-        for file in leftovers {
-            try? fileManager.removeItem(at: file)
+        for folder in [incomingDirectory, outgoingDirectory] {
+            let leftovers = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+            for file in leftovers {
+                try? fileManager.removeItem(at: file)
+            }
         }
     }
 

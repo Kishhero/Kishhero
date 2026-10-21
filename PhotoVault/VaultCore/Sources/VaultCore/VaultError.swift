@@ -17,6 +17,9 @@ public enum VaultError: Error, Equatable, Sendable {
     case catalogMissing
     /// No item with that ID is in the catalog.
     case itemNotFound
+    case albumNotFound
+    /// Album names must have 1 to `Album.maximumNameLength` visible characters.
+    case invalidAlbumName
     /// The hardware-bound secret is gone (Keychain item deleted or wiped).
     case deviceSecretMissing
     case secureEnclaveUnavailable

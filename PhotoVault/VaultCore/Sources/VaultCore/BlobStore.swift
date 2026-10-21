@@ -88,7 +88,7 @@ public struct BlobStore: Sendable {
         return removed
     }
 
-    private static var newFileAttributes: [FileAttributeKey: Any]? {
+    static var newFileAttributes: [FileAttributeKey: Any]? {
         #if os(iOS)
         return [.protectionKey: FileProtectionType.complete]
         #else

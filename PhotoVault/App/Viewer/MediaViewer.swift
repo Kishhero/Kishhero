@@ -7,14 +7,24 @@ import VaultCore
 struct MediaViewer: View {
     let library: LibraryModel
     let items: [VaultItem]
+    /// The album being viewed, for "Remove from Album".
+    let albumID: UUID?
     @State private var index: Int
     @State private var showsChrome = true
+    @State private var confirmingDelete = false
+    @State private var confirmingSave = false
+    @State private var choosingAlbum = false
     @Environment(\.dismiss) private var dismiss
 
-    init(library: LibraryModel, items: [VaultItem], startID: UUID) {
+    init(library: LibraryModel, items: [VaultItem], startID: UUID, albumID: UUID? = nil) {
         self.library = library
         self.items = items
+        self.albumID = albumID
         _index = State(initialValue: items.firstIndex { $0.id == startID } ?? 0)
+    }
+
+    private var current: VaultItem? {
+        items.indices.contains(index) ? items[index] : nil
     }
 
     var body: some View {
@@ -24,13 +34,94 @@ struct MediaViewer: View {
         .ignoresSafeArea()
         .background(Color.black)
         .overlay(alignment: .top) {
-            if showsChrome, items.indices.contains(index) {
-                header(for: items[index])
+            if showsChrome, let current {
+                header(for: current)
+                    .transition(.opacity)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showsChrome, current != nil {
+                actionBar
                     .transition(.opacity)
             }
         }
         .statusBarHidden(!showsChrome)
         .persistentSystemOverlays(showsChrome ? .automatic : .hidden)
+        .confirmationDialog("Delete this item?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete Item", role: .destructive) {
+                guard let current else { return }
+                dismiss()
+                Task { await library.delete([current.id]) }
+            }
+        } message: {
+            Text("It's removed from the vault and from every album. This can't be undone.")
+        }
+        .confirmationDialog("Save to Photos?", isPresented: $confirmingSave, titleVisibility: .visible) {
+            Button("Save") { save(removingLocation: false) }
+            Button("Save Without Location") { save(removingLocation: true) }
+        } message: {
+            Text(SaveToPhotos.explanation)
+        }
+        .sheet(isPresented: $choosingAlbum) {
+            AlbumPickerSheet(library: library, excluding: albumID) { album in
+                guard let current else { return }
+                Task { await library.add([current.id], toAlbum: album) }
+            }
+        }
+    }
+
+    private var actionBar: some View {
+        HStack {
+            Button {
+                confirmingSave = true
+            } label: {
+                Image(systemName: "square.and.arrow.down")
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Save to Photos")
+            .disabled(library.exportProgress != nil)
+            Spacer()
+            if library.exportProgress != nil {
+                ProgressView()
+                Spacer()
+            }
+            Button {
+                choosingAlbum = true
+            } label: {
+                Image(systemName: "rectangle.stack.badge.plus")
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Add to Album")
+            if let albumID, let current {
+                Spacer()
+                Button {
+                    dismiss()
+                    Task { await library.remove([current.id], fromAlbum: albumID) }
+                } label: {
+                    Image(systemName: "rectangle.stack.badge.minus")
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Remove from Album")
+            }
+            Spacer()
+            Button(role: .destructive) {
+                confirmingDelete = true
+            } label: {
+                Image(systemName: "trash")
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Delete")
+        }
+        .font(.title3)
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .background(.ultraThinMaterial)
+        .environment(\.colorScheme, .dark)
+    }
+
+    private func save(removingLocation: Bool) {
+        guard let current else { return }
+        library.saveToPhotos([current.id], removingLocation: removingLocation)
     }
 
     private func header(for item: VaultItem) -> some View {
